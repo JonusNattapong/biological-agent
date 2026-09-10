@@ -48,6 +48,7 @@ let rateBuffer = [];
 // ==========================================================================
 let roomScene, roomCamera, roomRenderer, roomControls;
 let flyGroup, flyInnerGroup, flyLeftWing, flyRightWing;
+let flyLeftHaltere = null, flyRightHaltere = null;
 let roomTable, roomDoor, foodObjects = [];
 let clickableObjects = [];
 let flyTrajectoryLine, trajectoryGeometry;
@@ -173,49 +174,133 @@ function createClickRipple(x, y, z) {
 
 function createWingTexture() {
   const canvas = document.createElement("canvas");
-  canvas.width = 256;
-  canvas.height = 128;
+  canvas.width = 512;
+  canvas.height = 256;
   const ctx = canvas.getContext("2d");
 
-  ctx.fillStyle = "rgba(240, 249, 255, 0.22)";
-  ctx.fillRect(0, 0, 256, 128);
+  // Transparent glass membrane with thin-film interference rainbow sheen
+  ctx.clearRect(0, 0, 512, 256);
 
-  const grad = ctx.createLinearGradient(0, 0, 256, 128);
-  grad.addColorStop(0, "rgba(56, 189, 248, 0.12)");
-  grad.addColorStop(0.5, "rgba(168, 85, 247, 0.08)");
-  grad.addColorStop(1, "rgba(251, 191, 36, 0.1)");
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, 256, 128);
+  // Soft iridescent base gradient
+  const sheen = ctx.createLinearGradient(0, 0, 512, 256);
+  sheen.addColorStop(0.0, "rgba(224, 242, 254, 0.28)"); // crystal clear
+  sheen.addColorStop(0.3, "rgba(56, 189, 248, 0.20)");  // cyan highlight
+  sheen.addColorStop(0.55, "rgba(192, 132, 252, 0.16)"); // violet sheen
+  sheen.addColorStop(0.8, "rgba(251, 191, 36, 0.18)");  // amber shimmer
+  sheen.addColorStop(1.0, "rgba(167, 243, 208, 0.14)"); // soft emerald
+  ctx.fillStyle = sheen;
+  ctx.fillRect(0, 0, 512, 256);
 
-  ctx.strokeStyle = "rgba(71, 85, 105, 0.85)";
-  ctx.lineWidth = 2.5;
+  // Micro-texture stippling (corneal/cuticle reflection)
+  ctx.fillStyle = "rgba(255, 255, 255, 0.04)";
+  for (let i = 0; i < 1200; i++) {
+    const rx = Math.random() * 512;
+    const ry = Math.random() * 256;
+    ctx.fillRect(rx, ry, 1.2, 1.2);
+  }
 
-  ctx.beginPath();
-  ctx.moveTo(8, 20);
-  ctx.bezierCurveTo(80, 10, 200, 15, 250, 60);
-  ctx.stroke();
+  // --- Drosophila Wing Venation ---
+  const primaryVein = "rgba(45, 34, 26, 0.95)";
+  const secondaryVein = "rgba(75, 58, 44, 0.85)";
+  const fineVein = "rgba(105, 85, 68, 0.75)";
 
-  ctx.lineWidth = 1.8;
+  // 1. Costal Vein (C) - Leading anterior edge
+  ctx.strokeStyle = primaryVein;
+  ctx.lineWidth = 4.5;
   ctx.beginPath();
   ctx.moveTo(10, 35);
-  ctx.bezierCurveTo(90, 32, 190, 40, 248, 68);
+  ctx.bezierCurveTo(120, 20, 320, 25, 490, 110);
   ctx.stroke();
 
+  // Costal fringe micro-bristles along leading edge
+  ctx.strokeStyle = "rgba(35, 26, 20, 0.75)";
+  ctx.lineWidth = 1.0;
+  for (let x = 30; x < 460; x += 3.5) {
+    const yRatio = (x - 30) / 430;
+    const y = 30 - Math.sin(yRatio * Math.PI) * 10 + yRatio * 60;
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x + 1.5, y - 3.5);
+    ctx.stroke();
+  }
+
+  // 2. Subcostal (Sc) with break at ~25% span
+  ctx.strokeStyle = primaryVein;
+  ctx.lineWidth = 3.0;
   ctx.beginPath();
-  ctx.moveTo(10, 55);
-  ctx.bezierCurveTo(90, 60, 180, 75, 242, 85);
+  ctx.moveTo(15, 38);
+  ctx.bezierCurveTo(70, 32, 110, 30, 135, 26);
   ctx.stroke();
 
+  // 3. Radial Vein R1
+  ctx.strokeStyle = primaryVein;
+  ctx.lineWidth = 3.2;
   ctx.beginPath();
-  ctx.moveTo(10, 75);
-  ctx.bezierCurveTo(90, 85, 170, 105, 225, 115);
+  ctx.moveTo(15, 45);
+  ctx.bezierCurveTo(90, 42, 170, 35, 220, 27);
   ctx.stroke();
 
-  ctx.lineWidth = 1.4;
+  // 4. Radial Vein R2+3
+  ctx.strokeStyle = secondaryVein;
+  ctx.lineWidth = 2.8;
   ctx.beginPath();
-  ctx.moveTo(110, 34); ctx.lineTo(110, 63);
-  ctx.moveTo(175, 42); ctx.lineTo(175, 76);
+  ctx.moveTo(15, 50);
+  ctx.bezierCurveTo(140, 52, 330, 48, 485, 95);
   ctx.stroke();
+
+  // 5. Radial Vein R4+5 (terminating at apex)
+  ctx.strokeStyle = primaryVein;
+  ctx.lineWidth = 3.0;
+  ctx.beginPath();
+  ctx.moveTo(20, 60);
+  ctx.bezierCurveTo(150, 70, 340, 80, 500, 125);
+  ctx.stroke();
+
+  // 6. Anterior Crossvein (r-m) connecting R4+5 and M1+2
+  ctx.strokeStyle = secondaryVein;
+  ctx.lineWidth = 2.4;
+  ctx.beginPath();
+  ctx.moveTo(215, 74);
+  ctx.lineTo(225, 112);
+  ctx.stroke();
+
+  // 7. Media Vein M1+2
+  ctx.strokeStyle = secondaryVein;
+  ctx.lineWidth = 2.6;
+  ctx.beginPath();
+  ctx.moveTo(22, 75);
+  ctx.bezierCurveTo(140, 95, 330, 130, 470, 165);
+  ctx.stroke();
+
+  // 8. Posterior Crossvein (dm-cu)
+  ctx.strokeStyle = secondaryVein;
+  ctx.lineWidth = 2.4;
+  ctx.beginPath();
+  ctx.moveTo(350, 133);
+  ctx.lineTo(365, 185);
+  ctx.stroke();
+
+  // 9. Cubitus Vein CuA1
+  ctx.strokeStyle = fineVein;
+  ctx.lineWidth = 2.4;
+  ctx.beginPath();
+  ctx.moveTo(25, 90);
+  ctx.bezierCurveTo(130, 125, 250, 165, 420, 205);
+  ctx.stroke();
+
+  // 10. Anal Vein A1 + Anal lobe margin
+  ctx.strokeStyle = fineVein;
+  ctx.lineWidth = 2.0;
+  ctx.beginPath();
+  ctx.moveTo(25, 105);
+  ctx.bezierCurveTo(90, 150, 160, 205, 250, 225);
+  ctx.stroke();
+
+  // Sclerotized hinge plate / basicosta at wing base
+  ctx.fillStyle = "rgba(40, 28, 20, 0.9)";
+  ctx.beginPath();
+  ctx.ellipse(22, 65, 16, 32, -0.2, 0, Math.PI * 2);
+  ctx.fill();
 
   const texture = new THREE.CanvasTexture(canvas);
   return texture;
@@ -223,17 +308,106 @@ function createWingTexture() {
 
 function createAbdomenTexture() {
   const canvas = document.createElement("canvas");
-  canvas.width = 128;
+  canvas.width = 256;
+  canvas.height = 512;
+  const ctx = canvas.getContext("2d");
+
+  // Warm golden-amber chitin base
+  const bgGrad = ctx.createLinearGradient(0, 0, 256, 0);
+  bgGrad.addColorStop(0.0, "#92400e");
+  bgGrad.addColorStop(0.5, "#d97706");
+  bgGrad.addColorStop(1.0, "#92400e");
+  ctx.fillStyle = bgGrad;
+  ctx.fillRect(0, 0, 256, 512);
+
+  // Micro-cuticle stippling
+  ctx.fillStyle = "rgba(0, 0, 0, 0.05)";
+  for (let i = 0; i < 2000; i++) {
+    ctx.fillRect(Math.random() * 256, Math.random() * 512, 1.5, 1.5);
+  }
+
+  // Tergites T1 to T4: Dark posterior bands with median point
+  const bands = [
+    { y: 55, h: 32 },
+    { y: 130, h: 38 },
+    { y: 215, h: 44 },
+    { y: 300, h: 52 },
+  ];
+
+  ctx.fillStyle = "#18181b"; // Dark melanin
+  for (let b of bands) {
+    ctx.beginPath();
+    ctx.moveTo(0, b.y);
+    ctx.bezierCurveTo(70, b.y - 12, 186, b.y - 12, 256, b.y);
+    ctx.lineTo(256, b.y + b.h);
+    ctx.lineTo(0, b.y + b.h);
+    ctx.closePath();
+    ctx.fill();
+
+    // Central anterior triangular projection (diagnostic for D. melanogaster)
+    ctx.beginPath();
+    ctx.moveTo(105, b.y - 4);
+    ctx.lineTo(128, b.y - 20);
+    ctx.lineTo(151, b.y - 4);
+    ctx.closePath();
+    ctx.fill();
+
+    // Subtle golden highlight on anterior margin of tergite
+    ctx.strokeStyle = "rgba(251, 191, 36, 0.35)";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(10, b.y + b.h + 4);
+    ctx.lineTo(246, b.y + b.h + 4);
+    ctx.stroke();
+  }
+
+  // Tergites T5 & T6: Solid black male apical pigmentation (MaleCNS)
+  ctx.fillStyle = "#0f172a";
+  ctx.beginPath();
+  ctx.moveTo(0, 385);
+  ctx.bezierCurveTo(80, 365, 176, 365, 256, 385);
+  ctx.lineTo(256, 512);
+  ctx.lineTo(0, 512);
+  ctx.closePath();
+  ctx.fill();
+
+  // Lateral abdominal spiracles
+  ctx.fillStyle = "#09090b";
+  for (let y of [75, 150, 235, 325, 410]) {
+    ctx.beginPath();
+    ctx.arc(22, y, 3.5, 0, Math.PI * 2);
+    ctx.arc(234, y, 3.5, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  const texture = new THREE.CanvasTexture(canvas);
+  return texture;
+}
+
+function createThoraxTexture() {
+  const canvas = document.createElement("canvas");
+  canvas.width = 256;
   canvas.height = 256;
   const ctx = canvas.getContext("2d");
 
-  ctx.fillStyle = "#b45309";
-  ctx.fillRect(0, 0, 128, 256);
+  // Tan-gold chitin base
+  const bg = ctx.createLinearGradient(0, 0, 256, 256);
+  bg.addColorStop(0, "#78350f");
+  bg.addColorStop(0.5, "#92400e");
+  bg.addColorStop(1, "#451a03");
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, 256, 256);
 
-  ctx.fillStyle = "#1e293b";
-  for (let y = 30; y < 256; y += 36) {
-    ctx.fillRect(0, y, 128, 16);
-    ctx.fillRect(56, y - 10, 16, 26);
+  // 3 Subtle darker longitudinal vittae (stripes on Drosophila scutum)
+  ctx.fillStyle = "rgba(24, 24, 27, 0.45)";
+  ctx.fillRect(80, 20, 22, 216);
+  ctx.fillRect(118, 15, 20, 226);
+  ctx.fillRect(154, 20, 22, 216);
+
+  // Fine setal stippling
+  ctx.fillStyle = "rgba(0, 0, 0, 0.25)";
+  for (let i = 0; i < 1500; i++) {
+    ctx.fillRect(Math.random() * 256, Math.random() * 256, 1.2, 1.2);
   }
 
   const texture = new THREE.CanvasTexture(canvas);
@@ -242,26 +416,279 @@ function createAbdomenTexture() {
 
 function createEyeTexture() {
   const canvas = document.createElement("canvas");
-  canvas.width = 128;
-  canvas.height = 128;
+  canvas.width = 256;
+  canvas.height = 256;
   const ctx = canvas.getContext("2d");
 
-  ctx.fillStyle = "#881337";
-  ctx.fillRect(0, 0, 128, 128);
+  // Deep wine/burgundy base
+  ctx.fillStyle = "#4a044e";
+  ctx.fillRect(0, 0, 256, 256);
 
-  ctx.fillStyle = "#f59e0b";
-  const r = 3.5;
-  for (let y = 4; y < 128; y += 7) {
-    const shift = (Math.floor(y / 7) % 2 === 0) ? 0 : 4;
-    for (let x = 4; x < 128; x += 8) {
+  // Ruby red ommatidial lenses with specular corneal reflections
+  const r = 3.2;
+  const rowHeight = 6.2;
+  const colWidth = 7.2;
+
+  for (let row = 0; row < 44; row++) {
+    const y = row * rowHeight + 4;
+    const xOffset = (row % 2 === 0) ? 0 : colWidth / 2;
+    for (let col = -1; col < 38; col++) {
+      const x = col * colWidth + xOffset;
+
+      const grad = ctx.createRadialGradient(x - 0.8, y - 0.8, 0.2, x, y, r);
+      grad.addColorStop(0.0, "#f87171"); // bright corneal reflection
+      grad.addColorStop(0.35, "#dc2626"); // ruby red
+      grad.addColorStop(0.75, "#991b1b"); // deep crimson
+      grad.addColorStop(1.0, "#450a0a"); // dark pigment cell border
+
+      ctx.fillStyle = grad;
       ctx.beginPath();
-      ctx.arc(x + shift, y, r, 0, Math.PI * 2);
+      ctx.arc(x, y, r, 0, Math.PI * 2);
       ctx.fill();
     }
   }
 
   const texture = new THREE.CanvasTexture(canvas);
   return texture;
+}
+
+function createDrosophilaWingGeometry() {
+  const shape = new THREE.Shape();
+  // Start at wing hinge / axillary base
+  shape.moveTo(0, 0);
+  // Anterior costal margin (slight anterior bulge)
+  shape.bezierCurveTo(2.5, 1.4, 6.0, 3.2, 10.0, 3.1);
+  // Toward apex (curving gently)
+  shape.bezierCurveTo(13.0, 2.9, 15.6, 1.6, 16.0, 0.0);
+  // Rounded wing tip and posterior margin
+  shape.bezierCurveTo(15.8, -1.5, 13.0, -3.2, 9.0, -3.1);
+  // Posterior anal lobe (tapering back to hinge)
+  shape.bezierCurveTo(4.5, -2.8, 1.8, -1.8, 0, 0);
+
+  const geo = new THREE.ShapeGeometry(shape, 32);
+
+  // Compute normalized UV coordinates [0..1] based on bounding box
+  geo.computeBoundingBox();
+  const bb = geo.boundingBox;
+  const pos = geo.attributes.position;
+  const uvs = new Float32Array(pos.count * 2);
+  const w = bb.max.x - bb.min.x;
+  const h = bb.max.y - bb.min.y;
+
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i);
+    const y = pos.getY(i);
+    uvs[i * 2 + 0] = (x - bb.min.x) / w;
+    uvs[i * 2 + 1] = 1.0 - (y - bb.min.y) / h;
+  }
+  geo.setAttribute("uv", new THREE.BufferAttribute(uvs, 2));
+  return geo;
+}
+
+function createJointedLeg(side, pairType, legMat) {
+  // side: -1 (left), +1 (right)
+  // pairType: 0 (fore), 1 (mid), 2 (hind)
+  const legGroup = new THREE.Group();
+
+  let coxaPos, femurLen, tibiaLen, tarsusLen;
+  let femurRot, tibiaRot, tarsusRot;
+
+  if (pairType === 0) {
+    // Foreleg: reaches forward and down
+    coxaPos = new THREE.Vector3(side * 1.5, -1.2, 1.8);
+    femurLen = 3.2; tibiaLen = 3.4; tarsusLen = 3.6;
+    femurRot = new THREE.Euler(0.4, side * 0.35, side * 0.65);
+    tibiaRot = new THREE.Euler(0.3, 0, -side * 0.4);
+    tarsusRot = new THREE.Euler(0.2, 0, -side * 0.2);
+  } else if (pairType === 1) {
+    // Midleg: extends lateral and down
+    coxaPos = new THREE.Vector3(side * 1.7, -1.3, 0.0);
+    femurLen = 3.6; tibiaLen = 3.8; tarsusLen = 4.0;
+    femurRot = new THREE.Euler(0.0, side * 0.1, side * 0.85);
+    tibiaRot = new THREE.Euler(0.0, 0, -side * 0.55);
+    tarsusRot = new THREE.Euler(0.1, 0, -side * 0.25);
+  } else {
+    // Hindleg: reaches backward and down
+    coxaPos = new THREE.Vector3(side * 1.6, -1.2, -1.8);
+    femurLen = 4.2; tibiaLen = 4.4; tarsusLen = 4.6;
+    femurRot = new THREE.Euler(-0.5, -side * 0.25, side * 0.75);
+    tibiaRot = new THREE.Euler(-0.4, 0, -side * 0.45);
+    tarsusRot = new THREE.Euler(-0.2, 0, -side * 0.2);
+  }
+
+  legGroup.position.copy(coxaPos);
+
+  // 1. Femur
+  const femurGeo = new THREE.CylinderGeometry(0.28, 0.22, femurLen, 8);
+  femurGeo.translate(0, -femurLen / 2, 0);
+  const femur = new THREE.Mesh(femurGeo, legMat);
+  femur.rotation.copy(femurRot);
+  legGroup.add(femur);
+
+  // 2. Tibia (connected to end of femur)
+  const tibiaGeo = new THREE.CylinderGeometry(0.20, 0.15, tibiaLen, 8);
+  tibiaGeo.translate(0, -tibiaLen / 2, 0);
+  const tibia = new THREE.Mesh(tibiaGeo, legMat);
+  tibia.position.set(0, -femurLen, 0);
+  tibia.rotation.copy(tibiaRot);
+  femur.add(tibia);
+
+  // 3. Tarsus & claws (connected to end of tibia)
+  const tarsusGeo = new THREE.CylinderGeometry(0.13, 0.08, tarsusLen, 8);
+  tarsusGeo.translate(0, -tarsusLen / 2, 0);
+  const tarsus = new THREE.Mesh(tarsusGeo, legMat);
+  tarsus.position.set(0, -tibiaLen, 0);
+  tarsus.rotation.copy(tarsusRot);
+  tibia.add(tarsus);
+
+  // Tiny pretarsal claw at foot tip
+  const clawGeo = new THREE.ConeGeometry(0.14, 0.4, 6);
+  const claw = new THREE.Mesh(clawGeo, legMat);
+  claw.position.set(0, -tarsusLen, 0);
+  claw.rotation.x = Math.PI / 2;
+  tarsus.add(claw);
+
+  return legGroup;
+}
+
+function createHaltere(side) {
+  const group = new THREE.Group();
+  const stalkMat = new THREE.MeshStandardMaterial({ color: 0x78716c, roughness: 0.5 });
+  const bulbMat = new THREE.MeshStandardMaterial({ color: 0xfef08a, roughness: 0.3, emissive: 0xfef08a, emissiveIntensity: 0.25 });
+
+  // Slender stalk (scabellum + pedicel)
+  const stalkGeo = new THREE.CylinderGeometry(0.08, 0.12, 1.8, 6);
+  stalkGeo.translate(0, 0.9, 0);
+  const stalk = new THREE.Mesh(stalkGeo, stalkMat);
+  stalk.rotation.z = side * (Math.PI / 2 + 0.3);
+  stalk.rotation.x = -0.3;
+  group.add(stalk);
+
+  // Ivory/cream bulb (capitulum)
+  const bulbGeo = new THREE.SphereGeometry(0.35, 12, 12);
+  const bulb = new THREE.Mesh(bulbGeo, bulbMat);
+  bulb.position.set(side * 1.8, 0.5, -0.4);
+  group.add(bulb);
+
+  group.position.set(side * 2.2, 0.8, -2.2);
+  return group;
+}
+
+function createAntennaWithArista(side) {
+  const antGroup = new THREE.Group();
+  const antMat = new THREE.MeshStandardMaterial({ color: 0x57534e, roughness: 0.6 });
+  const aristaMat = new THREE.MeshBasicMaterial({ color: 0x1c1917 });
+
+  // 1. Pedicel (2nd segment)
+  const pedGeo = new THREE.SphereGeometry(0.35, 10, 10);
+  const ped = new THREE.Mesh(pedGeo, antMat);
+  ped.position.set(0, 0, 0);
+  antGroup.add(ped);
+
+  // 2. Funiculus (3rd bulbous segment with olfactory sensilla)
+  const funGeo = new THREE.SphereGeometry(0.42, 10, 10);
+  funGeo.scale(1.0, 1.3, 0.9);
+  const fun = new THREE.Mesh(funGeo, antMat);
+  fun.position.set(0, -0.4, 0.2);
+  antGroup.add(fun);
+
+  // 3. Main Arista Stalk (curving outward and forward)
+  const aristaGeo = new THREE.CylinderGeometry(0.04, 0.08, 2.4, 6);
+  aristaGeo.translate(0, 1.2, 0);
+  const arista = new THREE.Mesh(aristaGeo, aristaMat);
+  arista.rotation.set(0.7, side * 0.45, side * 0.3);
+  antGroup.add(arista);
+
+  // 4. Feathery micro-branches on the arista (4-5 lateral branches)
+  for (let b = 0; b < 5; b++) {
+    const branchGeo = new THREE.CylinderGeometry(0.02, 0.03, 0.6 + b * 0.1, 4);
+    branchGeo.translate(0, 0.3, 0);
+    const branch = new THREE.Mesh(branchGeo, aristaMat);
+    branch.position.set(side * 0.05, 0.5 + b * 0.35, 0);
+    branch.rotation.set(0.4, side * 0.8, side * 0.5);
+    arista.add(branch);
+  }
+
+  antGroup.position.set(side * 0.7, 0.9, 4.6);
+  return antGroup;
+}
+
+function createOcelliTriangle() {
+  const ocelliGroup = new THREE.Group();
+  const ocellusMat = new THREE.MeshStandardMaterial({
+    color: 0xef4444,
+    emissive: 0xdc2626,
+    emissiveIntensity: 0.6,
+    roughness: 0.1,
+  });
+
+  const ocellusGeo = new THREE.SphereGeometry(0.18, 8, 8);
+  // Anterior median ocellus
+  const antOcellus = new THREE.Mesh(ocellusGeo, ocellusMat);
+  antOcellus.position.set(0, 2.05, 3.8);
+  ocelliGroup.add(antOcellus);
+
+  // Two posterior lateral ocelli
+  const lOcellus = new THREE.Mesh(ocellusGeo, ocellusMat);
+  lOcellus.position.set(-0.35, 2.15, 3.35);
+  ocelliGroup.add(lOcellus);
+
+  const rOcellus = new THREE.Mesh(ocellusGeo, ocellusMat);
+  rOcellus.position.set(0.35, 2.15, 3.35);
+  ocelliGroup.add(rOcellus);
+
+  return ocelliGroup;
+}
+
+function createThoracicBristles() {
+  const group = new THREE.Group();
+  const bristleMat = new THREE.MeshBasicMaterial({ color: 0x09090b });
+
+  const bristlePositions = [
+    // Dorsocentrals: [x, y, z, rotX, rotZ]
+    [-1.2, 2.8, -0.6, -0.35, -0.2],
+    [1.2, 2.8, -0.6, -0.35, 0.2],
+    [-1.1, 2.7, -1.8, -0.45, -0.25],
+    [1.1, 2.7, -1.8, -0.45, 0.25],
+    // Scutellar bristles
+    [-0.7, 2.1, -3.2, -0.55, -0.3],
+    [0.7, 2.1, -3.2, -0.55, 0.3],
+    [-0.3, 2.0, -3.4, -0.6, -0.1],
+    [0.3, 2.0, -3.4, -0.6, 0.1],
+  ];
+
+  for (let bp of bristlePositions) {
+    const bGeo = new THREE.ConeGeometry(0.06, 2.2, 5);
+    bGeo.translate(0, 1.1, 0);
+    const b = new THREE.Mesh(bGeo, bristleMat);
+    b.position.set(bp[0], bp[1], bp[2]);
+    b.rotation.set(bp[3], 0, bp[4]);
+    group.add(b);
+  }
+  return group;
+}
+
+function createProboscis() {
+  const group = new THREE.Group();
+  const mouthMat = new THREE.MeshStandardMaterial({ color: 0x78350f, roughness: 0.5 });
+  const labellumMat = new THREE.MeshStandardMaterial({ color: 0x92400e, roughness: 0.4 });
+
+  // Rostrum
+  const rostGeo = new THREE.CylinderGeometry(0.5, 0.4, 1.2, 8);
+  rostGeo.translate(0, -0.6, 0);
+  const rost = new THREE.Mesh(rostGeo, mouthMat);
+  rost.rotation.x = -0.3;
+  group.add(rost);
+
+  // Labellum (sponging lobes)
+  const labGeo = new THREE.SphereGeometry(0.45, 10, 10);
+  labGeo.scale(1.2, 0.7, 1.0);
+  const lab = new THREE.Mesh(labGeo, labellumMat);
+  lab.position.set(0, -1.2, 0.2);
+  group.add(lab);
+
+  group.position.set(0, -0.8, 3.4);
+  return group;
 }
 
 function initRoom3D() {
@@ -561,108 +988,156 @@ function build3DFly() {
 
   const wingTex = createWingTexture();
   const abdomenTex = createAbdomenTexture();
+  const thoraxTex = createThoraxTexture();
   const eyeTex = createEyeTexture();
 
-  // Chitin material
-  const bodyMat = new THREE.MeshStandardMaterial({
-    color: 0x27272a,
-    roughness: 0.35,
-    metalness: 0.45,
+  // Chitin material for body parts
+  const chitinMat = new THREE.MeshStandardMaterial({
+    map: thoraxTex,
+    roughness: 0.45,
+    metalness: 0.25,
   });
 
-  // 1. Thorax (Center)
-  const thoraxGeo = new THREE.SphereGeometry(3.5, 20, 20);
-  const thorax = new THREE.Mesh(thoraxGeo, bodyMat);
-  thorax.scale.set(1.1, 0.95, 1.35);
+  const darkChitinMat = new THREE.MeshStandardMaterial({
+    color: 0x1c1917,
+    roughness: 0.35,
+    metalness: 0.4,
+  });
+
+  const legMat = new THREE.MeshStandardMaterial({
+    color: 0x292524,
+    roughness: 0.55,
+    metalness: 0.25,
+  });
+
+  // 1. Thorax (Scutum + Mesothorax)
+  const thoraxGeo = new THREE.SphereGeometry(3.5, 24, 24);
+  const thorax = new THREE.Mesh(thoraxGeo, chitinMat);
+  thorax.scale.set(1.15, 1.05, 1.35);
   thorax.castShadow = true;
   flyInnerGroup.add(thorax);
 
-  // 2. Abdomen (Rear: -Z) with striped Drosophila tergites
-  const abdomenGeo = new THREE.SphereGeometry(3.6, 20, 20);
+  // Scutellum: Distinct posterior triangular shield overlapping abdomen
+  const scutGeo = new THREE.SphereGeometry(1.6, 16, 16);
+  scutGeo.scale(1.2, 0.55, 1.1);
+  const scutellum = new THREE.Mesh(scutGeo, chitinMat);
+  scutellum.position.set(0, 1.5, -2.4);
+  scutellum.rotation.x = -0.3;
+  scutellum.castShadow = true;
+  flyInnerGroup.add(scutellum);
+
+  // Thoracic Macrochaetae (Major bristles on scutum & scutellum)
+  const bristles = createThoracicBristles();
+  flyInnerGroup.add(bristles);
+
+  // 2. Abdomen (Segmented with MaleCNS dark melanin bands & black apical tip)
+  const abdomenGeo = new THREE.SphereGeometry(3.6, 24, 24);
   const abdomenMat = new THREE.MeshStandardMaterial({
     map: abdomenTex,
     roughness: 0.4,
-    metalness: 0.25,
+    metalness: 0.2,
   });
   const abdomen = new THREE.Mesh(abdomenGeo, abdomenMat);
-  abdomen.scale.set(1.0, 0.85, 1.85);
-  abdomen.position.set(0, -0.4, -4.5);
-  abdomen.rotation.x = -0.15;
+  abdomen.scale.set(1.0, 0.88, 1.95);
+  abdomen.position.set(0, -0.4, -4.8);
+  abdomen.rotation.x = -0.18;
   abdomen.castShadow = true;
   flyInnerGroup.add(abdomen);
 
-  // 3. Head (Front: +Z)
-  const headGeo = new THREE.SphereGeometry(2.4, 20, 20);
-  const head = new THREE.Mesh(headGeo, bodyMat);
-  head.position.set(0, 0.3, 3.4);
+  // 3. Head (Broad reniform shape)
+  const headGeo = new THREE.SphereGeometry(2.5, 20, 20);
+  headGeo.scale(1.25, 0.95, 0.95);
+  const head = new THREE.Mesh(headGeo, darkChitinMat);
+  head.position.set(0, 0.4, 3.4);
   head.castShadow = true;
   flyInnerGroup.add(head);
 
-  // 4. Ruby Compound Eyes with hexagonal ommatidia texture & glow
-  const eyeGeo = new THREE.SphereGeometry(1.85, 24, 24);
+  // 4. Ruby Compound Eyes (Anterolateral, bulging, faceted ommatidia)
+  const eyeGeo = new THREE.SphereGeometry(1.9, 28, 28);
   const eyeMat = new THREE.MeshStandardMaterial({
     map: eyeTex,
-    roughness: 0.15,
-    metalness: 0.5,
-    emissive: 0x991b1b,
-    emissiveIntensity: 0.3,
+    roughness: 0.12,
+    metalness: 0.4,
+    emissive: 0x881337,
+    emissiveIntensity: 0.35,
   });
 
   const leftEye = new THREE.Mesh(eyeGeo, eyeMat);
-  leftEye.scale.set(0.9, 1.3, 1.3);
-  leftEye.position.set(-1.6, 0.7, 4.0);
-  leftEye.rotation.set(0.1, -0.3, 0.1);
+  leftEye.scale.set(0.9, 1.35, 1.35);
+  leftEye.position.set(-1.65, 0.75, 3.9);
+  leftEye.rotation.set(0.12, -0.35, 0.15);
   flyInnerGroup.add(leftEye);
 
   const rightEye = new THREE.Mesh(eyeGeo, eyeMat);
-  rightEye.scale.set(0.9, 1.3, 1.3);
-  rightEye.position.set(1.6, 0.7, 4.0);
-  rightEye.rotation.set(0.1, 0.3, -0.1);
+  rightEye.scale.set(0.9, 1.35, 1.35);
+  rightEye.position.set(1.65, 0.75, 3.9);
+  rightEye.rotation.set(0.12, 0.35, -0.15);
   flyInnerGroup.add(rightEye);
 
-  // Antennae
-  const antMat = new THREE.MeshBasicMaterial({ color: 0x94a3b8 });
-  for (let side of [-1, 1]) {
-    const antGeo = new THREE.CylinderGeometry(0.1, 0.1, 2.5, 6);
-    const ant = new THREE.Mesh(antGeo, antMat);
-    ant.position.set(side * 0.6, 1.2, 5.0);
-    ant.rotation.set(0.6, side * 0.3, 0);
-    flyInnerGroup.add(ant);
-  }
+  // 5. Ocellar Triangle (3 simple eyes on vertex crown)
+  const ocelli = createOcelliTriangle();
+  flyInnerGroup.add(ocelli);
 
-  // 5. Delicate Veined Translucent Wings
-  const wingGeo = new THREE.PlaneGeometry(13.0, 6.0);
+  // 6. Antennae with Feathery Arista
+  const leftAnt = createAntennaWithArista(-1);
+  flyInnerGroup.add(leftAnt);
+  const rightAnt = createAntennaWithArista(1);
+  flyInnerGroup.add(rightAnt);
+
+  // 7. Proboscis (Mouthparts & Labellum)
+  const proboscis = createProboscis();
+  flyInnerGroup.add(proboscis);
+
+  // 8. Halteres (Dipteran Gyroscopic Balancers)
+  flyLeftHaltere = createHaltere(-1);
+  flyInnerGroup.add(flyLeftHaltere);
+  flyRightHaltere = createHaltere(1);
+  flyInnerGroup.add(flyRightHaltere);
+
+  // 9. Delicate Veined Translucent Wings (Biological Drosophila Shape)
+  const wingGeo = createDrosophilaWingGeometry();
   const wingMat = new THREE.MeshPhysicalMaterial({
     map: wingTex,
     transparent: true,
-    opacity: 0.7,
-    roughness: 0.1,
-    transmission: 0.85,
-    ior: 1.45,
+    opacity: 0.82,
+    roughness: 0.08,
+    transmission: 0.88,
+    ior: 1.48,
+    clearcoat: 1.0,
+    clearcoatRoughness: 0.1,
     side: THREE.DoubleSide,
+    depthWrite: false,
   });
 
-  flyLeftWing = new THREE.Mesh(wingGeo, wingMat);
-  flyLeftWing.position.set(-7.2, 1.7, -0.5);
-  flyLeftWing.rotation.set(-Math.PI / 2, 0, 0.15);
+  // Left Wing (Hinged at base, extended laterally and back)
+  const leftWingGroup = new THREE.Group();
+  leftWingGroup.position.set(-2.4, 1.9, -0.4);
+  const leftWingMesh = new THREE.Mesh(wingGeo, wingMat);
+  leftWingMesh.rotation.set(-Math.PI / 2, 0, Math.PI + 0.25);
+  leftWingGroup.add(leftWingMesh);
+  flyLeftWing = leftWingGroup;
   flyInnerGroup.add(flyLeftWing);
 
-  flyRightWing = new THREE.Mesh(wingGeo, wingMat);
-  flyRightWing.position.set(7.2, 1.7, -0.5);
-  flyRightWing.rotation.set(-Math.PI / 2, 0, -0.15);
+  // Right Wing
+  const rightWingGroup = new THREE.Group();
+  rightWingGroup.position.set(2.4, 1.9, -0.4);
+  const rightWingMesh = new THREE.Mesh(wingGeo, wingMat);
+  rightWingMesh.rotation.set(-Math.PI / 2, 0, -0.25);
+  rightWingMesh.scale.set(-1, 1, 1); // mirror for right side
+  rightWingGroup.add(rightWingMesh);
+  flyRightWing = rightWingGroup;
   flyInnerGroup.add(flyRightWing);
 
-  // 6. Jointed Legs
-  const legMat = new THREE.MeshBasicMaterial({ color: 0x111827 });
-  for (let side of [-1, 1]) {
-    for (let i = 0; i < 3; i++) {
-      const legGeo = new THREE.CylinderGeometry(0.2, 0.2, 5.5, 6);
-      const leg = new THREE.Mesh(legGeo, legMat);
-      leg.position.set(side * 2.8, -1.8, (i - 1) * 2.5);
-      leg.rotation.set(0, 0, side * 0.7);
-      flyInnerGroup.add(leg);
-    }
-  }
+  // 10. Jointed Articulated Legs (6 legs, 3 pairs)
+  // Forelegs (pair 0)
+  flyInnerGroup.add(createJointedLeg(-1, 0, legMat));
+  flyInnerGroup.add(createJointedLeg(1, 0, legMat));
+  // Midlegs (pair 1)
+  flyInnerGroup.add(createJointedLeg(-1, 1, legMat));
+  flyInnerGroup.add(createJointedLeg(1, 1, legMat));
+  // Hindlegs (pair 2)
+  flyInnerGroup.add(createJointedLeg(-1, 2, legMat));
+  flyInnerGroup.add(createJointedLeg(1, 2, legMat));
 
   flyGroup.position.set(-10, 42, -20);
   roomScene.add(flyGroup);
@@ -953,10 +1428,20 @@ function animateRoomLoop() {
       flyInnerGroup.rotation.z = currentBankAngle;
     }
 
-    // Wing flapping oscillation
-    const flutter = Math.sin(now * 0.08) * 0.4;
-    if (flyLeftWing) flyLeftWing.rotation.y = flutter;
-    if (flyRightWing) flyRightWing.rotation.y = -flutter;
+    // Biological wing flapping oscillation with stroke & pitch torsion
+    const flutter = Math.sin(now * 0.09) * 0.48;
+    if (flyLeftWing) {
+      flyLeftWing.rotation.y = flutter;
+      flyLeftWing.rotation.z = Math.sin(now * 0.09) * 0.12;
+    }
+    if (flyRightWing) {
+      flyRightWing.rotation.y = -flutter;
+      flyRightWing.rotation.z = -Math.sin(now * 0.09) * 0.12;
+    }
+
+    // Dipteran halteres gyroscopic anti-phase oscillation
+    if (flyLeftHaltere) flyLeftHaltere.rotation.x = -flutter * 0.8;
+    if (flyRightHaltere) flyRightHaltere.rotation.x = flutter * 0.8;
 
     // Floor drop shadow follow & scale with altitude
     if (flyFloorShadow && flyShadowMat) {
