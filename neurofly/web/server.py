@@ -112,7 +112,7 @@ class SimulationManager:
             self.trajectory.append([round(float(pos[0]), 2), round(float(pos[1]), 2), 35.0])
 
     def get_static_brain_data(self) -> Dict[str, Any]:
-        """Return a bounded 3D rendering view of the active connectome."""
+        """Return a bounded 3D rendering view of the active connectome with stratified LOD."""
         if not isinstance(self.active_controller, MaleCNSController):
             self._brain_render_lookup = {}
             return {"num_neurons": 0, "num_synapses": 0, "coordinates": [], "neuropils": [], "synaptic_tracts": []}
@@ -121,9 +121,28 @@ class SimulationManager:
         if conn.num_neurons <= MAX_RENDER_NEURONS:
             render_indices = np.arange(conn.num_neurons, dtype=np.int64)
         else:
-            # Deterministic even sampling keeps browser payloads bounded while
-            # preserving coverage across the indexed graph.
-            render_indices = np.linspace(0, conn.num_neurons - 1, MAX_RENDER_NEURONS, dtype=np.int64)
+            # Stratified deterministic sampling across neuropils ensures all
+            # regions (Optic, Antennal, CX, MB, Motor) are proportionally represented.
+            neuropil_to_indices: Dict[Any, List[int]] = {}
+            for idx, np_val in enumerate(conn.neuron_neuropils):
+                np_key = np_val.value if hasattr(np_val, "value") else str(np_val)
+                neuropil_to_indices.setdefault(np_key, []).append(idx)
+
+            selected_indices = []
+            total_neurons = conn.num_neurons
+            for np_key, indices_list in neuropil_to_indices.items():
+                np_count = len(indices_list)
+                # Ensure proportional allocation with guaranteed representation floor (min 30 neurons)
+                quota = max(min(30, np_count), int(MAX_RENDER_NEURONS * (np_count / total_neurons)))
+                quota = min(quota, np_count)
+                if quota >= np_count:
+                    selected_indices.extend(indices_list)
+                else:
+                    step = np_count / quota
+                    picked = [indices_list[int(i * step)] for i in range(quota)]
+                    selected_indices.extend(picked)
+
+            render_indices = np.array(sorted(set(selected_indices))[:MAX_RENDER_NEURONS], dtype=np.int64)
 
         self._brain_render_lookup = {int(src): i for i, src in enumerate(render_indices)}
         coords = conn.coordinates[render_indices].astype(np.float32, copy=True)
@@ -141,22 +160,40 @@ class SimulationManager:
                 if scale > 0:
                     coords[nonzero] *= 180.0 / scale
 
-        # Tracts are sampled only for small/medium graphs where local indices
-        # map directly enough to provide useful context. Large graphs would
-        # otherwise require scanning millions of edges for a decorative view.
-        sampled_edges = [[], []]
+        # Sample structural synaptic tracts connecting the sampled neurons so
+        # connectome connectivity is preserved in the 3D visualization.
+        local_lookup = np.full(conn.num_neurons, -1, dtype=np.int32)
+        local_lookup[render_indices] = np.arange(len(render_indices), dtype=np.int32)
+
         indices = conn.weight_matrix.indices().cpu().numpy()
-        total_edges = indices.shape[1]
-        if conn.num_neurons <= MAX_RENDER_NEURONS:
-            sample_step = max(1, total_edges // 600)
-            sampled_edges = indices[:, ::sample_step][:, :600].tolist()
+        valid_mask = (local_lookup[indices[0]] >= 0) & (local_lookup[indices[1]] >= 0)
+        valid_edges = indices[:, valid_mask]
+
+        max_tracts = 1500
+        if valid_edges.shape[1] > max_tracts:
+            step = max(1, valid_edges.shape[1] // max_tracts)
+            sampled_raw = valid_edges[:, ::step][:, :max_tracts]
+        else:
+            sampled_raw = valid_edges
+
+        sampled_edges = [
+            local_lookup[sampled_raw[0]].tolist(),
+            local_lookup[sampled_raw[1]].tolist(),
+        ]
+
+        neuropil_strings = [
+            conn.neuron_neuropils[int(i)].value
+            if hasattr(conn.neuron_neuropils[int(i)], "value")
+            else str(conn.neuron_neuropils[int(i)])
+            for i in render_indices
+        ]
 
         return {
             "num_neurons": conn.num_neurons,
             "rendered_neurons": int(len(render_indices)),
             "num_synapses": conn.num_synapses,
             "coordinates": coords.tolist(),
-            "neuropils": [conn.neuron_neuropils[int(i)].value for i in render_indices],
+            "neuropils": neuropil_strings,
             "synaptic_tracts": sampled_edges,
             "dataset_id": conn.metadata.get("dataset_id", "synthetic-structured"),
             "official_malecns": self.active_controller.is_official_malecns,
@@ -266,9 +303,10 @@ class SimulationManager:
         elif action_type == "drop_food":
             x = float(cmd.get("x", 0.0))
             y = float(cmd.get("y", 0.0))
+            z = float(cmd.get("z", 2.0))
             if isinstance(self.active_env, HouseRoomEnvironment):
                 self.active_env.foods[0].consumed = False
-                self.active_env.foods[0].pos = np.array([x, y, 2.0], dtype=np.float32)
+                self.active_env.foods[0].pos = np.array([x, y, z], dtype=np.float32)
             else:
                 self.active_env.foods[0].pos = np.array([x, y], dtype=np.float32)
         elif action_type == "spawn_threat":

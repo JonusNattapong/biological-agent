@@ -44,6 +44,10 @@
           <span class="chip-value">dt = 1.0 ms</span>
         </div>
         <div class="telemetry-chip">
+          <span class="chip-label">FPS:</span>
+          <span class="chip-value font-mono highlight-green" id="hud-fps">60</span>
+        </div>
+        <div class="telemetry-chip">
           <span class="chip-label">STEP:</span>
           <span class="chip-value font-mono" id="hud-step">000000</span>
         </div>
@@ -81,10 +85,10 @@
       <div class="deck-section">
         <span class="deck-label">CAMERA</span>
         <div class="pill-segmented-control" id="camera-modes">
-          <button class="seg-btn active" data-cam="room">ROOM VIEW</button>
-          <button class="seg-btn" data-cam="chase">FLY CHASE</button>
+          <button class="seg-btn active" data-cam="room">ROOM</button>
+          <button class="seg-btn" data-cam="chase">CHASE</button>
           <button class="seg-btn" data-cam="pov">FLY POV</button>
-          <button class="seg-btn" data-cam="free">FREE ORBIT</button>
+          <button class="seg-btn" data-cam="free">ORBIT</button>
         </div>
       </div>
 
@@ -92,6 +96,7 @@
         <span class="deck-label">SPEED</span>
         <div class="pill-segmented-control">
           <button class="seg-btn active" data-speed="1">1x</button>
+          <button class="seg-btn" data-speed="2">2x</button>
           <button class="seg-btn" data-speed="5">5x</button>
           <button class="seg-btn" data-speed="10">10x</button>
           <button class="seg-btn" data-speed="20">20x</button>
@@ -122,40 +127,49 @@
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
         </svg>
-        PEACEFUL CRUISE & SENSORY STIMULUS:
+        BIOLOGICAL STIMULUS INJECTION:
       </div>
       <div class="console-buttons">
-        <button class="stim-btn" id="stim-food-table">
+        <button class="stim-btn" id="stim-food-table" title="Place ripe fruit on living room wooden table">
           <span class="stim-indicator green"></span>
-          Place Fruit on Table
+          Fruit on Table
         </button>
-        <button class="stim-btn" id="stim-food-floor">
+        <button class="stim-btn" id="stim-food-floor" title="Drop sugar crumb onto floor rug">
           <span class="stim-indicator green"></span>
-          Drop Sugar on Floor
+          Sugar on Floor
         </button>
-        <button class="stim-btn" id="stim-light-l">
+        <button class="stim-btn" id="stim-light-l" title="Illuminate left compound eye">
           <span class="stim-indicator cyan"></span>
-          Sunlight: Left Eye
+          Light: L-Eye
         </button>
-        <button class="stim-btn" id="stim-light-r">
+        <button class="stim-btn" id="stim-light-r" title="Illuminate right compound eye">
           <span class="stim-indicator cyan"></span>
-          Sunlight: Right Eye
+          Light: R-Eye
         </button>
-        <button class="stim-btn" id="stim-zap">
+        <button class="stim-btn" id="stim-zap" title="Microelectrode pulse into Central Complex ring">
           <span class="stim-indicator yellow"></span>
-          Pulse Central Complex
+          Pulse CX Ring
         </button>
+        <button class="stim-btn" id="stim-threat" title="Simulate looming optical shadow predator">
+          <span class="stim-indicator red"></span>
+          Looming Threat
+        </button>
+      </div>
+      <div class="interaction-tip">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+        Click floor/table to drop sugar crumb
       </div>
     </div>
 
     <!-- Main Dual Cockpit Workspace -->
     <main class="main-workspace">
-      <!-- Left: 3D House Room Viewport -->
-      <div class="hud-panel arena-viewport-container">
+      <!-- Left: 3D House Room Viewport (Hero Element) -->
+      <div class="hud-panel arena-viewport-container hero-viewport" id="arena-panel">
         <div class="hud-panel-header transparent">
           <div class="hud-title">
             <span class="status-marker"></span>
             3D INTERIOR HOUSE ENVIRONMENT
+            <span class="hud-badge alt-badge" id="hud-altitude-badge">ALT: 38.0 cm</span>
           </div>
           <div class="hud-metrics-strip">
             <div class="hud-metric">
@@ -167,9 +181,14 @@
               <span class="m-val font-mono highlight-green" id="hud-food">0</span>
             </div>
             <div class="hud-metric">
-              <span class="m-label">FLIGHT DISTANCE:</span>
+              <span class="m-label">FLIGHT DIST:</span>
               <span class="m-val font-mono" id="hud-distance">0.0 mm</span>
             </div>
+            <button class="icon-tool-btn" id="btn-fullscreen-room" title="Toggle Fullscreen Viewport">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path>
+              </svg>
+            </button>
           </div>
         </div>
 
@@ -185,8 +204,8 @@
             <div class="radar-hud-line">POSITION: <span id="overlay-position">X: 0.0 | Y: 0.0 | Z: 0.0 cm</span></div>
             <div class="radar-hud-line">KINEMATICS: <span id="overlay-kinematics">v: 0.00 mm/s | w: 0.000 rad/s</span></div>
             <div class="radar-hud-line">HEADING: <span id="overlay-heading">Yaw: 0.0° | Pitch: 0.0°</span></div>
-            <div class="radar-hud-line">FURNITURE: <span>Table on Left | Door on Right | Window on Back</span></div>
-            <div class="radar-hud-line hint">INTERACTION: <span style="color:var(--accent-amber)">Click floor/table to drop sugar crumb</span></div>
+            <div class="radar-hud-line">TARGET FOOD: <span id="overlay-food-dist">Nearest: 54.2 cm</span></div>
+            <div class="radar-hud-line hint">INTERACTION: <span style="color:var(--accent-amber)">Click floor or table surface to drop sugar crumb</span></div>
           </div>
         </div>
       </div>
@@ -200,8 +219,30 @@
               <span class="status-marker cyan"></span>
               3D MaleCNS CONNECTOME
             </div>
-            <div class="hud-tag" id="hud-neuron-tag">1,520 NEURONS // 25,480 SYNAPSES</div>
+            <div class="connectome-tools">
+              <div class="hud-tag" id="hud-neuron-tag">1,520 NEURONS // 25,480 SYNAPSES</div>
+              <button class="icon-tool-btn" id="btn-autorotate-brain" title="Toggle Auto-Rotation">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
+              </button>
+              <button class="icon-tool-btn" id="btn-reset-brain-cam" title="Reset Connectome Camera">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19 12a7 7 0 1 1-14 0 7 7 0 0 1 14 0z"></path></svg>
+              </button>
+            </div>
           </div>
+
+          <!-- Neuropil Isolation Filter Bar -->
+          <div class="neuropil-filter-toolbar">
+            <span class="filter-label">ISOLATE:</span>
+            <div class="filter-chips">
+              <button class="np-chip active" data-neuropil="ALL">ALL</button>
+              <button class="np-chip optic" data-neuropil="OPTIC">OPTIC</button>
+              <button class="np-chip antennal" data-neuropil="ANTENNAL">ANTENNAL</button>
+              <button class="np-chip cx" data-neuropil="CENTRAL_COMPLEX">CX</button>
+              <button class="np-chip mb" data-neuropil="MUSHROOM_BODY">MB</button>
+              <button class="np-chip motor" data-neuropil="DESCENDING_MOTOR">MOTOR</button>
+            </div>
+          </div>
+
           <div id="connectome-three-container"></div>
           
           <!-- 3D Viewer Legend / Guide -->
@@ -210,8 +251,8 @@
             <div class="legend-item"><span class="leg-color green"></span> Antennal Lobes</div>
             <div class="legend-item"><span class="leg-color yellow"></span> Central Complex</div>
             <div class="legend-item"><span class="leg-color purple"></span> Mushroom Body</div>
-            <div class="legend-item"><span class="leg-color red"></span> Descending Motor</div>
-            <div class="legend-hint">Orbit: Drag | Zoom: Scroll</div>
+            <div class="legend-item"><span class="leg-color red"></span> Motor DNs</div>
+            <div class="legend-hint">Orbit: Drag | Zoom: Scroll | Dynamic Spiking: 4-14px</div>
           </div>
         </div>
 

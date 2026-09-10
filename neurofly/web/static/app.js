@@ -20,6 +20,9 @@ const neuropilMetersGrid = document.getElementById("neuropil-meters-grid");
 const overlayPosition = document.getElementById("overlay-position");
 const overlayKinematics = document.getElementById("overlay-kinematics");
 const overlayHeading = document.getElementById("overlay-heading");
+const overlayFoodDist = document.getElementById("overlay-food-dist");
+const hudFps = document.getElementById("hud-fps");
+const hudAltitudeBadge = document.getElementById("hud-altitude-badge");
 
 // Inside Fly 05 Telemetry & Retinal Elements
 const leftEyeCanvas = document.getElementById("left-eye-canvas");
@@ -48,8 +51,13 @@ let flyGroup, flyInnerGroup, flyLeftWing, flyRightWing;
 let roomTable, roomDoor, foodObjects = [];
 let clickableObjects = [];
 let flyTrajectoryLine, trajectoryGeometry;
+let flyFloorShadow = null, flyShadowMat = null;
+let ripples = [];
+let targetFlyPos = new THREE.Vector3(-10, 42, -20);
+let targetHeading = 0.0, targetPitch = 0.0;
 let prevFlyHeading = 0.0;
 let currentBankAngle = 0.0;
+let fpsFrameCount = 0, lastFpsTime = performance.now();
 const MAX_TRAIL_POINTS = 80;
 const trailPositions = new Float32Array(MAX_TRAIL_POINTS * 3);
 let trailCount = 0;
@@ -129,6 +137,38 @@ function createRugTexture() {
 
   const texture = new THREE.CanvasTexture(canvas);
   return texture;
+}
+
+function createDropShadowTexture() {
+  const canvas = document.createElement("canvas");
+  canvas.width = 128;
+  canvas.height = 128;
+  const ctx = canvas.getContext("2d");
+  const grad = ctx.createRadialGradient(64, 64, 0, 64, 64, 64);
+  grad.addColorStop(0, "rgba(0, 0, 0, 0.75)");
+  grad.addColorStop(0.35, "rgba(0, 0, 0, 0.45)");
+  grad.addColorStop(0.7, "rgba(0, 0, 0, 0.12)");
+  grad.addColorStop(1, "rgba(0, 0, 0, 0)");
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, 128, 128);
+  return new THREE.CanvasTexture(canvas);
+}
+
+function createClickRipple(x, y, z) {
+  if (!roomScene) return;
+  const ringGeo = new THREE.RingGeometry(0.8, 1.8, 24);
+  const ringMat = new THREE.MeshBasicMaterial({
+    color: 0x10b981,
+    side: THREE.DoubleSide,
+    transparent: true,
+    opacity: 0.85,
+    depthWrite: false,
+  });
+  const ring = new THREE.Mesh(ringGeo, ringMat);
+  ring.rotation.x = -Math.PI / 2;
+  ring.position.set(x, y + 0.15, z);
+  roomScene.add(ring);
+  ripples.push({ mesh: ring, age: 0, maxAge: 35 });
 }
 
 function createWingTexture() {
@@ -275,9 +315,37 @@ function initRoom3D() {
   buildRoomGeometry();
   build3DFly();
 
-  // Click to drop sugar interaction
+  // Floor drop shadow for fly altitude perception
+  const shadowTex = createDropShadowTexture();
+  const shadowGeo = new THREE.PlaneGeometry(1, 1);
+  flyShadowMat = new THREE.MeshBasicMaterial({
+    map: shadowTex,
+    transparent: true,
+    opacity: 0.65,
+    depthWrite: false,
+  });
+  flyFloorShadow = new THREE.Mesh(shadowGeo, flyShadowMat);
+  flyFloorShadow.rotation.x = -Math.PI / 2;
+  flyFloorShadow.position.set(0, 0.16, 0);
+  roomScene.add(flyFloorShadow);
+
+  // Click & hover to drop sugar interaction
   const raycaster = new THREE.Raycaster();
   const mouse = new THREE.Vector2();
+
+  roomRenderer.domElement.addEventListener("pointermove", (event) => {
+    if (cameraMode === "free") {
+      roomRenderer.domElement.style.cursor = "grab";
+      return;
+    }
+    const rect = roomRenderer.domElement.getBoundingClientRect();
+    mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+    mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+    raycaster.setFromCamera(mouse, roomCamera);
+    const intersects = raycaster.intersectObjects(clickableObjects, true);
+    roomRenderer.domElement.style.cursor = (intersects.length > 0) ? "crosshair" : "default";
+  });
+
   roomRenderer.domElement.addEventListener("pointerdown", (event) => {
     if (cameraMode === "free") return;
     const rect = roomRenderer.domElement.getBoundingClientRect();
@@ -288,8 +356,10 @@ function initRoom3D() {
     const intersects = raycaster.intersectObjects(clickableObjects, true);
     if (intersects.length > 0) {
       const pt = intersects[0].point;
+      const targetZ = pt.y > 20 ? 32.0 : 2.0; // table top vs floor
+      createClickRipple(pt.x, pt.y, pt.z);
       if (ws && ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({ action: "stimulus", type: "drop_food", x: pt.x, y: pt.z }));
+        ws.send(JSON.stringify({ action: "stimulus", type: "drop_food", x: pt.x, y: pt.z, z: targetZ }));
       }
     }
   });
@@ -635,13 +705,34 @@ function updateFoodObjects(foods) {
 
       fGroup.position.set(f.x, f.z, f.y);
       roomScene.add(fGroup);
-      foodObjects.push({ group: fGroup, id: f.id });
+
+      // Soft drop shadow for food
+      const shadowGeo = new THREE.PlaneGeometry(1, 1);
+      const shadowMat = new THREE.MeshBasicMaterial({
+        map: createDropShadowTexture(),
+        transparent: true,
+        opacity: 0.55,
+        depthWrite: false,
+      });
+      const shadowMesh = new THREE.Mesh(shadowGeo, shadowMat);
+      shadowMesh.rotation.x = -Math.PI / 2;
+      const surfaceY = f.z > 20 ? 31.8 : 0.15;
+      shadowMesh.position.set(f.x, surfaceY, f.y);
+      shadowMesh.scale.set(9.0, 9.0, 1.0);
+      roomScene.add(shadowMesh);
+
+      foodObjects.push({ group: fGroup, shadow: shadowMesh, id: f.id });
     }
   } else {
     for (let i = 0; i < foods.length; i++) {
       if (foodObjects[i]) {
         foodObjects[i].group.position.set(foods[i].x, foods[i].z, foods[i].y);
         foodObjects[i].group.visible = !foods[i].consumed;
+        if (foodObjects[i].shadow) {
+          const surfaceY = foods[i].z > 20 ? 31.8 : 0.15;
+          foodObjects[i].shadow.position.set(foods[i].x, surfaceY, foods[i].y);
+          foodObjects[i].shadow.visible = !foods[i].consumed;
+        }
       }
     }
   }
@@ -650,28 +741,10 @@ function updateFoodObjects(foods) {
 function updateRoomFly(flyState, trajectory) {
   if (!flyGroup) return;
 
-  // Position in Three.js: X=fly.x, Y=fly.z (height above floor), Z=fly.y (depth)
-  flyGroup.position.set(flyState.x, flyState.z, flyState.y);
-
-  // Point fly directly forward along heading vector
-  const targetX = flyState.x + Math.cos(flyState.heading) * 10;
-  const targetY = flyState.z + (flyState.pitch || 0) * 8;
-  const targetZ = flyState.y + Math.sin(flyState.heading) * 10;
-  flyGroup.lookAt(targetX, targetY, targetZ);
-
-  // Realistic aerodynamic banking roll when turning
-  let turnDelta = (flyState.heading - prevFlyHeading + Math.PI) % (2 * Math.PI) - Math.PI;
-  prevFlyHeading = flyState.heading;
-  const targetBank = -turnDelta * 2.4;
-  currentBankAngle = THREE.MathUtils.lerp(currentBankAngle, targetBank, 0.2);
-  if (flyInnerGroup) {
-    flyInnerGroup.rotation.z = currentBankAngle;
-  }
-
-  // Fast biological wing flapping oscillation
-  const flutter = Math.sin(Date.now() * 0.08) * 0.4;
-  if (flyLeftWing) flyLeftWing.rotation.y = flutter;
-  if (flyRightWing) flyRightWing.rotation.y = -flutter;
+  // Update target coordinates for smooth 60 FPS interpolation
+  targetFlyPos.set(flyState.x, flyState.z, flyState.y);
+  targetHeading = flyState.heading;
+  targetPitch = flyState.pitch || 0;
 
   // Update 3D Trajectory Ribbon (X, Y=z, Z=y)
   if (trajectory && trajectory.length > 1) {
@@ -714,10 +787,33 @@ function updateRoomFly(flyState, trajectory) {
     roomCamera.lookAt(0, 36, 0);
   }
 
-  // Telemetry overlay
+  // Telemetry HUD readouts
   overlayPosition.textContent = `X: ${flyState.x.toFixed(1)} | Y: ${flyState.y.toFixed(1)} | Z: ${flyState.z.toFixed(1)} cm`;
   const deg = (((flyState.heading * 180) / Math.PI) % 360).toFixed(1);
   overlayHeading.textContent = `Yaw: ${deg}° | Pitch: ${((flyState.pitch || 0) * 57.3).toFixed(1)}°`;
+
+  if (hudAltitudeBadge) {
+    hudAltitudeBadge.textContent = `ALT: ${flyState.z.toFixed(1)} cm`;
+  }
+
+  // Nearest food distance calculation
+  if (overlayFoodDist && foodObjects.length > 0) {
+    let minDist = 9999;
+    for (let f of foodObjects) {
+      if (f.group.visible) {
+        const dx = flyState.x - f.group.position.x;
+        const dy = flyState.z - f.group.position.y;
+        const dz = flyState.y - f.group.position.z;
+        const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+        if (dist < minDist) minDist = dist;
+      }
+    }
+    if (minDist < 9000) {
+      overlayFoodDist.textContent = `Nearest: ${minDist.toFixed(1)} cm`;
+    } else {
+      overlayFoodDist.textContent = "Consumed";
+    }
+  }
 }
 
 // --------------------------------------------------------------------------
@@ -829,6 +925,65 @@ function renderInsideSparkline(smellL, smellR, fractionFiring) {
 
 function animateRoomLoop() {
   requestAnimationFrame(animateRoomLoop);
+
+  // Measure real-time rendering FPS
+  fpsFrameCount++;
+  const now = performance.now();
+  if (now - lastFpsTime >= 500) {
+    const currentFps = Math.round((fpsFrameCount * 1000) / (now - lastFpsTime));
+    if (hudFps) hudFps.textContent = currentFps;
+    fpsFrameCount = 0;
+    lastFpsTime = now;
+  }
+
+  // Smooth biological flight interpolation (zero-garbage lerp)
+  if (flyGroup) {
+    flyGroup.position.lerp(targetFlyPos, 0.35);
+
+    const targetX = flyGroup.position.x + Math.cos(targetHeading) * 10;
+    const targetY = flyGroup.position.y + targetPitch * 8;
+    const targetZ = flyGroup.position.z + Math.sin(targetHeading) * 10;
+    flyGroup.lookAt(targetX, targetY, targetZ);
+
+    let turnDelta = (targetHeading - prevFlyHeading + Math.PI) % (2 * Math.PI) - Math.PI;
+    prevFlyHeading = targetHeading;
+    const targetBank = -turnDelta * 2.4;
+    currentBankAngle = THREE.MathUtils.lerp(currentBankAngle, targetBank, 0.2);
+    if (flyInnerGroup) {
+      flyInnerGroup.rotation.z = currentBankAngle;
+    }
+
+    // Wing flapping oscillation
+    const flutter = Math.sin(now * 0.08) * 0.4;
+    if (flyLeftWing) flyLeftWing.rotation.y = flutter;
+    if (flyRightWing) flyRightWing.rotation.y = -flutter;
+
+    // Floor drop shadow follow & scale with altitude
+    if (flyFloorShadow && flyShadowMat) {
+      const altitude = Math.max(1.0, flyGroup.position.y);
+      const shadowScale = Math.min(22.0, 7.0 + altitude * 0.16);
+      flyFloorShadow.scale.set(shadowScale, shadowScale, 1.0);
+      flyFloorShadow.position.set(flyGroup.position.x, 0.16, flyGroup.position.z);
+      flyShadowMat.opacity = Math.max(0.12, 0.75 - altitude * 0.007);
+    }
+  }
+
+  // Update click ripples
+  for (let i = ripples.length - 1; i >= 0; i--) {
+    const r = ripples[i];
+    r.age++;
+    const progress = r.age / r.maxAge;
+    const s = 1.0 + progress * 6.5;
+    r.mesh.scale.set(s, s, 1.0);
+    r.mesh.material.opacity = (1.0 - progress) * 0.85;
+    if (r.age >= r.maxAge) {
+      roomScene.remove(r.mesh);
+      r.mesh.geometry.dispose();
+      r.mesh.material.dispose();
+      ripples.splice(i, 1);
+    }
+  }
+
   if (roomControls && cameraMode === "free") {
     roomControls.update();
   }
@@ -841,7 +996,9 @@ function animateRoomLoop() {
 // 2. Three.js 3D Connectome Hologram (Right Panel)
 // ==========================================================================
 let connectomeScene, connectomeCamera, connectomeRenderer, connectomeControls;
-let brainPointCloud = null, synapticLines = null, colorAttribute = null, originalColors = null;
+let brainPointCloud = null, synapticLines = null;
+let spikeGlowAttribute = null, dimAttribute = null;
+let currentNeuropilFilter = "ALL";
 const connectomeContainer = document.getElementById("connectome-three-container");
 
 const NEUROPIL_METRICS = {
@@ -857,22 +1014,24 @@ const NEUROPIL_METRICS = {
 
 function createParticleTexture() {
   const canvas = document.createElement("canvas");
-  canvas.width = 32;
-  canvas.height = 32;
+  canvas.width = 64;
+  canvas.height = 64;
   const ctx = canvas.getContext("2d");
-  const grad = ctx.createRadialGradient(16, 16, 0, 16, 16, 16);
+  const grad = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
   grad.addColorStop(0, "rgba(255, 255, 255, 1.0)");
-  grad.addColorStop(0.3, "rgba(255, 255, 255, 0.7)");
-  grad.addColorStop(0.8, "rgba(255, 255, 255, 0.15)");
+  grad.addColorStop(0.25, "rgba(255, 255, 255, 0.85)");
+  grad.addColorStop(0.55, "rgba(255, 255, 255, 0.35)");
+  grad.addColorStop(0.85, "rgba(255, 255, 255, 0.08)");
   grad.addColorStop(1, "rgba(255, 255, 255, 0)");
   ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, 32, 32);
+  ctx.fillRect(0, 0, 64, 64);
   return new THREE.CanvasTexture(canvas);
 }
 
 function initConnectome3D() {
   connectomeScene = new THREE.Scene();
   connectomeScene.background = new THREE.Color(0x030509);
+  connectomeScene.fog = new THREE.FogExp2(0x030509, 0.0012);
 
   const width = connectomeContainer.clientWidth || 520;
   const height = connectomeContainer.clientHeight || 280;
@@ -887,13 +1046,41 @@ function initConnectome3D() {
 
   connectomeControls = new THREE.OrbitControls(connectomeCamera, connectomeRenderer.domElement);
   connectomeControls.enableDamping = true;
-  connectomeControls.dampingFactor = 0.08;
+  connectomeControls.dampingFactor = 0.06;
   connectomeControls.autoRotate = true;
-  connectomeControls.autoRotateSpeed = 0.5;
+  connectomeControls.autoRotateSpeed = 0.45;
 
   const gridHelper = new THREE.GridHelper(380, 12, 0x1e293b, 0x0f172a);
   gridHelper.position.y = -140;
   connectomeScene.add(gridHelper);
+
+  // Wire connectome toolbar controls
+  const btnAutoRotate = document.getElementById("btn-autorotate-brain");
+  if (btnAutoRotate) {
+    btnAutoRotate.classList.add("active");
+    btnAutoRotate.addEventListener("click", () => {
+      connectomeControls.autoRotate = !connectomeControls.autoRotate;
+      btnAutoRotate.classList.toggle("active", connectomeControls.autoRotate);
+    });
+  }
+
+  const btnResetCam = document.getElementById("btn-reset-brain-cam");
+  if (btnResetCam) {
+    btnResetCam.addEventListener("click", () => {
+      connectomeCamera.position.set(0, 70, 480);
+      connectomeControls.target.set(0, 0, 0);
+      connectomeControls.update();
+    });
+  }
+
+  // Neuropil isolation filter buttons
+  document.querySelectorAll(".np-chip").forEach((chip) => {
+    chip.addEventListener("click", () => {
+      document.querySelectorAll(".np-chip").forEach((c) => c.classList.remove("active"));
+      chip.classList.add("active");
+      applyNeuropilFilter(chip.getAttribute("data-neuropil"));
+    });
+  });
 
   window.addEventListener("resize", onConnectomeResize);
 }
@@ -920,10 +1107,12 @@ function buildConnectome3D(topology) {
 
   const positions = new Float32Array(numNeurons * 3);
   const colors = new Float32Array(numNeurons * 3);
-  originalColors = new Float32Array(numNeurons * 3);
+  const sizes = new Float32Array(numNeurons);
+  const glows = new Float32Array(numNeurons);
+  const dims = new Float32Array(numNeurons);
 
   for (let i = 0; i < numNeurons; i++) {
-    positions[i * 3] = coords[i][0];
+    positions[i * 3 + 0] = coords[i][0];
     positions[i * 3 + 1] = coords[i][1];
     positions[i * 3 + 2] = coords[i][2];
 
@@ -931,39 +1120,77 @@ function buildConnectome3D(topology) {
     const meta = NEUROPIL_METRICS[npKey] || { color: "#64748b" };
     const rgb = hexToRgb(meta.color);
 
-    colors[i * 3] = rgb.r * 0.55;
-    colors[i * 3 + 1] = rgb.g * 0.55;
-    colors[i * 3 + 2] = rgb.b * 0.55;
+    colors[i * 3 + 0] = rgb.r / 255;
+    colors[i * 3 + 1] = rgb.g / 255;
+    colors[i * 3 + 2] = rgb.b / 255;
 
-    originalColors[i * 3] = colors[i * 3];
-    originalColors[i * 3 + 1] = colors[i * 3 + 1];
-    originalColors[i * 3 + 2] = colors[i * 3 + 2];
+    sizes[i] = 4.8;
+    glows[i] = 0.0;
+    dims[i] = 1.0;
   }
 
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
-  colorAttribute = new THREE.BufferAttribute(colors, 3);
-  geometry.setAttribute("color", colorAttribute);
+  geometry.setAttribute("aColor", new THREE.BufferAttribute(colors, 3));
+  geometry.setAttribute("aSize", new THREE.BufferAttribute(sizes, 1));
+  spikeGlowAttribute = new THREE.BufferAttribute(glows, 1);
+  geometry.setAttribute("aSpikeGlow", spikeGlowAttribute);
+  dimAttribute = new THREE.BufferAttribute(dims, 1);
+  geometry.setAttribute("aDim", dimAttribute);
 
-  const pointMaterial = new THREE.PointsMaterial({
-    size: 6.0,
-    map: createParticleTexture(),
-    vertexColors: true,
+  // Dynamic biological spiking shader: expansion from 4.8px to 15px + intense white-hot luminescence
+  const brainShaderMaterial = new THREE.ShaderMaterial({
+    uniforms: {
+      pointTexture: { value: createParticleTexture() },
+    },
+    vertexShader: `
+      attribute vec3 aColor;
+      attribute float aSize;
+      attribute float aSpikeGlow;
+      attribute float aDim;
+      varying vec3 vColor;
+      varying float vGlow;
+      void main() {
+        vGlow = aSpikeGlow;
+        // Dimming for isolated neuropils
+        vec3 base = mix(vec3(0.04, 0.06, 0.10), aColor, aDim);
+        // Biological spike flash: white-hot core
+        if (aSpikeGlow > 0.01) {
+          base = mix(base, vec3(1.0, 1.0, 1.0), clamp(aSpikeGlow * 1.15, 0.0, 1.0));
+        }
+        vColor = base;
+        vec4 mvPos = modelViewMatrix * vec4(position, 1.0);
+        // Dynamic expansion with distance perspective
+        float pSize = (aSize + aSpikeGlow * 10.5) * (360.0 / -mvPos.z);
+        gl_PointSize = clamp(pSize, 2.0, 38.0);
+        gl_Position = projectionMatrix * mvPos;
+      }
+    `,
+    fragmentShader: `
+      uniform sampler2D pointTexture;
+      varying vec3 vColor;
+      varying float vGlow;
+      void main() {
+        vec4 tex = texture2D(pointTexture, gl_PointCoord);
+        if (tex.a < 0.04) discard;
+        gl_FragColor = vec4(vColor, tex.a * (0.85 + vGlow * 0.15));
+      }
+    `,
     transparent: true,
-    opacity: 0.9,
     blending: THREE.AdditiveBlending,
     depthWrite: false,
   });
 
-  brainPointCloud = new THREE.Points(geometry, pointMaterial);
+  brainPointCloud = new THREE.Points(geometry, brainShaderMaterial);
   connectomeScene.add(brainPointCloud);
 
-  // Synaptic tracts
+  // Synaptic tracts with stratified LOD and dual-color gradient
   if (tracts.length >= 2 && tracts[0].length > 0) {
     const posts = tracts[0];
     const pres = tracts[1];
-    const lineCount = Math.min(posts.length, 500);
+    const lineCount = Math.min(posts.length, 1200);
     const linePositions = new Float32Array(lineCount * 2 * 3);
+    const lineColors = new Float32Array(lineCount * 2 * 3);
 
     for (let e = 0; e < lineCount; e++) {
       const p1 = pres[e];
@@ -976,46 +1203,95 @@ function buildConnectome3D(topology) {
         linePositions[e * 6 + 3] = coords[p2][0];
         linePositions[e * 6 + 4] = coords[p2][1];
         linePositions[e * 6 + 5] = coords[p2][2];
+
+        lineColors[e * 6 + 0] = 0.0;
+        lineColors[e * 6 + 1] = 0.94;
+        lineColors[e * 6 + 2] = 1.0;
+
+        lineColors[e * 6 + 3] = 0.96;
+        lineColors[e * 6 + 4] = 0.62;
+        lineColors[e * 6 + 5] = 0.07;
       }
     }
 
     const lineGeom = new THREE.BufferGeometry();
     lineGeom.setAttribute("position", new THREE.BufferAttribute(linePositions, 3));
+    lineGeom.setAttribute("color", new THREE.BufferAttribute(lineColors, 3));
     const lineMat = new THREE.LineBasicMaterial({
-      color: 0x00f0ff,
+      vertexColors: true,
       transparent: true,
-      opacity: 0.12,
+      opacity: 0.16,
       blending: THREE.AdditiveBlending,
     });
     synapticLines = new THREE.LineSegments(lineGeom, lineMat);
     connectomeScene.add(synapticLines);
   }
+
+  if (currentNeuropilFilter !== "ALL") {
+    applyNeuropilFilter(currentNeuropilFilter);
+  }
+}
+
+function applyNeuropilFilter(filterKey) {
+  currentNeuropilFilter = filterKey;
+  if (!dimAttribute || !brainTopology) return;
+  const dims = dimAttribute.array;
+  const neuropils = brainTopology.neuropils;
+
+  for (let i = 0; i < dims.length; i++) {
+    const np = neuropils[i] || "";
+    if (filterKey === "ALL") {
+      dims[i] = 1.0;
+    } else if (filterKey === "OPTIC" && np.includes("OPTIC")) {
+      dims[i] = 1.0;
+    } else if (filterKey === "ANTENNAL" && np.includes("ANTENNAL")) {
+      dims[i] = 1.0;
+    } else if (filterKey === "CENTRAL_COMPLEX" && np.includes("CENTRAL_COMPLEX")) {
+      dims[i] = 1.0;
+    } else if (filterKey === "MUSHROOM_BODY" && np.includes("MUSHROOM_BODY")) {
+      dims[i] = 1.0;
+    } else if (filterKey === "DESCENDING_MOTOR" && (np.includes("DESCENDING") || np.includes("MOTOR"))) {
+      dims[i] = 1.0;
+    } else {
+      dims[i] = 0.12;
+    }
+  }
+  dimAttribute.needsUpdate = true;
+
+  if (synapticLines) {
+    synapticLines.material.opacity = (filterKey === "ALL") ? 0.16 : 0.05;
+  }
 }
 
 function updateBrainLuminescence(activeSpikes) {
-  if (!colorAttribute || !originalColors) return;
-  const colors = colorAttribute.array;
-  const count = colors.length / 3;
-
-  for (let i = 0; i < count * 3; i++) {
-    colors[i] += (originalColors[i] - colors[i]) * 0.22;
-  }
-
-  if (activeSpikes) {
-    for (let idx of activeSpikes) {
-      if (idx < count) {
-        colors[idx * 3] = 1.0;
-        colors[idx * 3 + 1] = 1.0;
-        colors[idx * 3 + 2] = 1.0;
-      }
+  if (!spikeGlowAttribute || !activeSpikes) return;
+  const glow = spikeGlowAttribute.array;
+  for (let idx of activeSpikes) {
+    if (idx < glow.length) {
+      glow[idx] = 1.0;
     }
   }
-  colorAttribute.needsUpdate = true;
+  spikeGlowAttribute.needsUpdate = true;
 }
 
 function animateConnectomeLoop() {
   requestAnimationFrame(animateConnectomeLoop);
   if (connectomeControls) connectomeControls.update();
+
+  if (spikeGlowAttribute) {
+    const glow = spikeGlowAttribute.array;
+    let anyGlow = false;
+    for (let i = 0; i < glow.length; i++) {
+      if (glow[i] > 0.005) {
+        glow[i] *= 0.88;
+        anyGlow = true;
+      }
+    }
+    if (anyGlow) {
+      spikeGlowAttribute.needsUpdate = true;
+    }
+  }
+
   if (connectomeRenderer && connectomeScene && connectomeCamera) {
     connectomeRenderer.render(connectomeScene, connectomeCamera);
   }
@@ -1343,6 +1619,19 @@ if (btnZap) {
   btnZap.addEventListener("click", () => {
     if (ws && ws.readyState === WebSocket.OPEN) {
       ws.send(JSON.stringify({ action: "stimulus", type: "zap_cx" }));
+    }
+  });
+}
+
+// Viewport Fullscreen Toggle
+const btnFullscreenRoom = document.getElementById("btn-fullscreen-room");
+if (btnFullscreenRoom) {
+  btnFullscreenRoom.addEventListener("click", () => {
+    const panel = document.getElementById("arena-panel");
+    if (panel) {
+      panel.classList.toggle("fullscreen");
+      btnFullscreenRoom.classList.toggle("active", panel.classList.contains("fullscreen"));
+      setTimeout(onRoomWindowResize, 60);
     }
   });
 }

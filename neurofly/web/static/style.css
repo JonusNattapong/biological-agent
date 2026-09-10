@@ -328,6 +328,20 @@ body {
 .stim-indicator.cyan { background: var(--accent-cyan); }
 .stim-indicator.yellow { background: var(--accent-amber); }
 
+.interaction-tip {
+  margin-left: auto;
+  font-size: 10px;
+  font-family: var(--font-mono);
+  color: var(--accent-amber);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(245, 158, 11, 0.08);
+  border: 1px solid rgba(245, 158, 11, 0.25);
+  padding: 3px 8px;
+  border-radius: 4px;
+}
+
 /* ==========================================================================
    Main Dual Workspace Layout
    ========================================================================== */
@@ -338,6 +352,55 @@ body {
   gap: 12px;
   padding: 12px;
   overflow: hidden;
+}
+
+.hero-viewport {
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.4);
+}
+
+.hero-viewport.fullscreen {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  z-index: 9999 !important;
+  border-radius: 0 !important;
+}
+
+.alt-badge {
+  font-size: 10px;
+  font-family: var(--font-mono);
+  color: var(--accent-emerald);
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  padding: 1px 6px;
+  border-radius: 3px;
+  margin-left: 8px;
+}
+
+.icon-tool-btn {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-dim);
+  color: var(--text-main);
+  border-radius: 4px;
+  padding: 3px 6px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.icon-tool-btn:hover {
+  background: rgba(0, 240, 255, 0.12);
+  border-color: var(--accent-cyan);
+  color: var(--text-pure);
+}
+
+.icon-tool-btn.active {
+  background: var(--accent-cyan);
+  color: #000;
 }
 
 .hud-panel {
@@ -500,6 +563,12 @@ body {
   height: 100%;
 }
 
+.connectome-tools {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .hud-tag {
   font-size: 10px;
   font-family: var(--font-mono);
@@ -508,6 +577,94 @@ body {
   border: 1px solid rgba(0, 240, 255, 0.3);
   padding: 2px 8px;
   border-radius: 3px;
+}
+
+.neuropil-filter-toolbar {
+  position: absolute;
+  top: 40px;
+  left: 12px;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(7, 9, 14, 0.85);
+  border: 1px solid var(--border-dim);
+  backdrop-filter: blur(8px);
+  padding: 3px 8px;
+  border-radius: 4px;
+}
+
+.filter-label {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  color: var(--text-muted);
+}
+
+.filter-chips {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.np-chip {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-dim);
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.np-chip:hover {
+  color: var(--text-pure);
+  border-color: var(--border-bright);
+}
+
+.np-chip.active {
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--text-pure);
+  border-color: var(--text-main);
+  box-shadow: 0 0 6px rgba(255, 255, 255, 0.2);
+}
+
+.np-chip.optic.active {
+  background: rgba(0, 240, 255, 0.2);
+  border-color: var(--accent-cyan);
+  color: var(--accent-cyan);
+  box-shadow: 0 0 8px var(--accent-cyan-glow);
+}
+
+.np-chip.antennal.active {
+  background: rgba(16, 185, 129, 0.2);
+  border-color: var(--accent-emerald);
+  color: var(--accent-emerald);
+  box-shadow: 0 0 8px var(--accent-emerald-glow);
+}
+
+.np-chip.cx.active {
+  background: rgba(245, 158, 11, 0.2);
+  border-color: var(--accent-amber);
+  color: var(--accent-amber);
+  box-shadow: 0 0 8px rgba(245, 158, 11, 0.3);
+}
+
+.np-chip.mb.active {
+  background: rgba(168, 85, 247, 0.2);
+  border-color: var(--accent-purple);
+  color: var(--accent-purple);
+  box-shadow: 0 0 8px rgba(168, 85, 247, 0.3);
+}
+
+.np-chip.motor.active {
+  background: rgba(244, 63, 94, 0.2);
+  border-color: var(--accent-rose);
+  color: var(--accent-rose);
+  box-shadow: 0 0 8px rgba(244, 63, 94, 0.3);
 }
 
 .connectome-3d-legend {
