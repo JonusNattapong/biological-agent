@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NeuroFly Lab — 3D House Interior & Connectome Engine</title>
+  
+  <!-- Typography -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  
+  <!-- Three.js + OrbitControls -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <div class="app-root">
+    <!-- Top Bar / Navigation -->
+    <header class="header">
+      <div class="brand-cluster">
+        <div class="logo-mark">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+            <polyline points="9 22 9 12 15 12 15 22"></polyline>
+          </svg>
+        </div>
+        <div class="brand-text">
+          <div class="brand-title">NEUROFLY <span>LAB</span></div>
+          <div class="brand-subtitle">3D Interior Room Simulation // MaleCNS Connectome v1.0</div>
+        </div>
+      </div>
+
+      <div class="system-telemetry-bar">
+        <div class="telemetry-chip">
+          <span class="chip-dot active"></span>
+          <span class="chip-label">ENGINE:</span>
+          <span class="chip-value">TORCH SPARSE LIF</span>
+        </div>
+        <div class="telemetry-chip">
+          <span class="chip-label">TIMESTEP:</span>
+          <span class="chip-value">dt = 1.0 ms</span>
+        </div>
+        <div class="telemetry-chip">
+          <span class="chip-label">STEP:</span>
+          <span class="chip-value font-mono" id="hud-step">000000</span>
+        </div>
+        <div class="telemetry-chip highlight">
+          <span class="chip-label">STATE:</span>
+          <span class="chip-value" id="hud-behavior-state">INTERIOR_PATROL</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Master Control Deck -->
+    <div class="command-deck">
+      <div class="deck-section">
+        <span class="deck-label">ENVIRONMENT</span>
+        <div class="select-wrapper">
+          <select id="env-select" class="sci-select">
+            <option value="house" selected>3D House Room (Living Room View)</option>
+            <option value="survival">2D Tactical Radar Arena</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="deck-section">
+        <span class="deck-label">CONTROLLER</span>
+        <div class="select-wrapper">
+          <select id="controller-select" class="sci-select">
+            <option value="malecns">MaleCNS Connectome (Biological LIF)</option>
+            <option value="heuristic">Heuristic Optimal (Tropotaxis / Evasion)</option>
+            <option value="tinynn">Tiny Neural Network (MLP)</option>
+            <option value="random">Brownian Random Walk</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="deck-section">
+        <span class="deck-label">CAMERA</span>
+        <div class="pill-segmented-control" id="camera-modes">
+          <button class="seg-btn active" data-cam="room">ROOM VIEW</button>
+          <button class="seg-btn" data-cam="chase">FLY CHASE</button>
+          <button class="seg-btn" data-cam="free">FREE ORBIT</button>
+        </div>
+      </div>
+
+      <div class="deck-section">
+        <span class="deck-label">SPEED</span>
+        <div class="pill-segmented-control">
+          <button class="seg-btn active" data-speed="1">1x</button>
+          <button class="seg-btn" data-speed="5">5x</button>
+          <button class="seg-btn" data-speed="10">10x</button>
+          <button class="seg-btn" data-speed="20">20x</button>
+        </div>
+      </div>
+
+      <div class="deck-section actions">
+        <button id="btn-pause" class="sci-btn outline">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+            <rect x="6" y="4" width="4" height="16"></rect>
+            <rect x="14" y="4" width="4" height="16"></rect>
+          </svg>
+          PAUSE
+        </button>
+        <button id="btn-reset" class="sci-btn danger">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+            <path d="M3 3v5h5"></path>
+          </svg>
+          RESET
+        </button>
+      </div>
+    </div>
+
+    <!-- Active Electrophysiology & Stimulus Injection Deck -->
+    <div class="stimulus-console">
+      <div class="console-title">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+        </svg>
+        INTERACTIVE STIMULUS:
+      </div>
+      <div class="console-buttons">
+        <button class="stim-btn" id="stim-food-table">
+          <span class="stim-indicator green"></span>
+          Place Fruit on Table
+        </button>
+        <button class="stim-btn" id="stim-food-floor">
+          <span class="stim-indicator green"></span>
+          Drop Sugar on Floor
+        </button>
+        <button class="stim-btn" id="stim-threat">
+          <span class="stim-indicator red"></span>
+          Deploy Fly Swatter Hazard
+        </button>
+        <button class="stim-btn" id="stim-light-l">
+          <span class="stim-indicator cyan"></span>
+          Light: Left Eye
+        </button>
+        <button class="stim-btn" id="stim-light-r">
+          <span class="stim-indicator cyan"></span>
+          Light: Right Eye
+        </button>
+        <button class="stim-btn" id="stim-zap">
+          <span class="stim-indicator yellow"></span>
+          Shock Central Complex
+        </button>
+      </div>
+    </div>
+
+    <!-- Main Dual Cockpit Workspace -->
+    <main class="main-workspace">
+      <!-- Left: 3D House Room Viewport -->
+      <div class="hud-panel arena-viewport-container">
+        <div class="hud-panel-header transparent">
+          <div class="hud-title">
+            <span class="status-marker"></span>
+            3D INTERIOR HOUSE ENVIRONMENT
+          </div>
+          <div class="hud-metrics-strip">
+            <div class="hud-metric">
+              <span class="m-label">ENERGY:</span>
+              <span class="m-val" id="hud-energy">100.0%</span>
+            </div>
+            <div class="hud-metric">
+              <span class="m-label">FOOD CONSUMED:</span>
+              <span class="m-val font-mono highlight-green" id="hud-food">0</span>
+            </div>
+            <div class="hud-metric">
+              <span class="m-label">COLLISIONS:</span>
+              <span class="m-val font-mono highlight-red" id="hud-collisions">0</span>
+            </div>
+            <div class="hud-metric">
+              <span class="m-label">FLIGHT DISTANCE:</span>
+              <span class="m-val font-mono" id="hud-distance">0.0 mm</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="arena-canvas-frame" id="room-3d-frame">
+          <!-- 3D Three.js House Canvas Container -->
+          <div id="room-three-container"></div>
+
+          <!-- 2D Canvas (Fallback for radar if selected) -->
+          <canvas id="arena-canvas" style="display:none;"></canvas>
+
+          <!-- 3D Room Telemetry HUD Overlay -->
+          <div class="radar-telemetry-hud-overlay">
+            <div class="radar-hud-line">POSITION: <span id="overlay-position">X: 0.0 | Y: 0.0 | Z: 0.0 cm</span></div>
+            <div class="radar-hud-line">KINEMATICS: <span id="overlay-kinematics">v: 0.00 mm/s | w: 0.000 rad/s</span></div>
+            <div class="radar-hud-line">HEADING: <span id="overlay-heading">Yaw: 0.0° | Pitch: 0.0°</span></div>
+            <div class="radar-hud-line">FURNITURE: <span>Table on Left | Door on Right | Window on Back</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: Biological Connectome & Electrophysiology -->
+      <div class="hud-panel connectome-viewport-container">
+        <!-- 3D Connectome Viewer -->
+        <div class="connectome-3d-box">
+          <div class="hud-panel-header transparent">
+            <div class="hud-title">
+              <span class="status-marker cyan"></span>
+              3D MaleCNS CONNECTOME
+            </div>
+            <div class="hud-tag" id="hud-neuron-tag">1,520 NEURONS // 25,480 SYNAPSES</div>
+          </div>
+          <div id="connectome-three-container"></div>
+          
+          <!-- 3D Viewer Legend / Guide -->
+          <div class="connectome-3d-legend">
+            <div class="legend-item"><span class="leg-color cyan"></span> Optic Lobes</div>
+            <div class="legend-item"><span class="leg-color green"></span> Antennal Lobes</div>
+            <div class="legend-item"><span class="leg-color yellow"></span> Central Complex</div>
+            <div class="legend-item"><span class="leg-color purple"></span> Mushroom Body</div>
+            <div class="legend-item"><span class="leg-color red"></span> Descending Motor</div>
+            <div class="legend-hint">Orbit: Left-drag | Zoom: Scroll</div>
+          </div>
+        </div>
+
+        <!-- Electrophysiology Dock: Spike Raster + Firing Rates -->
+        <div class="electrophys-dock">
+          <!-- Oscilloscope Spike Raster -->
+          <div class="scope-module">
+            <div class="scope-header">
+              <span class="scope-title">OSCILLOSCOPE // SPIKE RASTER DENSITY (100 ms)</span>
+              <div class="scope-stats">
+                <span class="scope-pill"><strong id="hud-active-spikes">0</strong> SPIKES/TICK</span>
+                <span class="scope-pill">SPARSITY: <strong id="hud-sparsity">98.5%</strong></span>
+              </div>
+            </div>
+            <div class="raster-frame">
+              <canvas id="raster-canvas"></canvas>
+            </div>
+          </div>
+
+          <!-- Neuropil Population Rate Meters -->
+          <div class="neuropil-module">
+            <div class="scope-header">
+              <span class="scope-title">NEUROPIL POPULATION FIRING RATES (Hz)</span>
+              <span class="scope-scale">CALIBRATED: 0 - 350 Hz</span>
+            </div>
+            <div class="neuropil-meters-grid" id="neuropil-meters-grid">
+              <!-- Dynamically populated with calibrated color bars -->
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

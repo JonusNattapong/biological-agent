@@ -1,0 +1,679 @@
+:root {
+  --bg-deep: #07090e;
+  --bg-surface: #0e121c;
+  --bg-subtle: #141926;
+  --bg-elevated: #1a2133;
+  --border-dim: #1e283d;
+  --border-bright: #2d3b59;
+  --border-focus: #00f0ff;
+
+  --text-pure: #f8fafc;
+  --text-main: #cbd5e1;
+  --text-muted: #64748b;
+  --text-dim: #475569;
+
+  --accent-cyan: #00f0ff;
+  --accent-cyan-glow: rgba(0, 240, 255, 0.25);
+  --accent-emerald: #10b981;
+  --accent-emerald-glow: rgba(16, 185, 129, 0.25);
+  --accent-rose: #f43f5e;
+  --accent-amber: #f59e0b;
+  --accent-purple: #a855f7;
+
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background-color: var(--bg-deep);
+  color: var(--text-main);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 1.4;
+  height: 100vh;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+.font-mono {
+  font-family: var(--font-mono);
+}
+
+.app-root {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* ==========================================================================
+   Top Navigation Header
+   ========================================================================== */
+.header {
+  height: 52px;
+  background-color: var(--bg-surface);
+  border-bottom: 1px solid var(--border-dim);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  flex-shrink: 0;
+}
+
+.brand-cluster {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.logo-mark {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  background: linear-gradient(135deg, rgba(0, 240, 255, 0.15), rgba(168, 85, 247, 0.15));
+  border: 1px solid rgba(0, 240, 255, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent-cyan);
+  box-shadow: 0 0 12px var(--accent-cyan-glow);
+}
+
+.brand-title {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: var(--text-pure);
+}
+
+.brand-title span {
+  color: var(--accent-cyan);
+  font-weight: 800;
+}
+
+.brand-subtitle {
+  font-size: 10px;
+  color: var(--text-muted);
+  letter-spacing: 0.5px;
+  font-family: var(--font-mono);
+}
+
+.system-telemetry-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.telemetry-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-dim);
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 11px;
+}
+
+.telemetry-chip.highlight {
+  border-color: rgba(0, 240, 255, 0.3);
+  background: rgba(0, 240, 255, 0.05);
+}
+
+.telemetry-chip .chip-label {
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+.telemetry-chip .chip-value {
+  color: var(--text-pure);
+  font-weight: 600;
+}
+
+.chip-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--text-muted);
+}
+
+.chip-dot.active {
+  background: var(--accent-emerald);
+  box-shadow: 0 0 8px var(--accent-emerald);
+}
+
+/* ==========================================================================
+   Command Deck (Controls & Speeds)
+   ========================================================================== */
+.command-deck {
+  height: 48px;
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border-dim);
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
+  gap: 28px;
+  flex-shrink: 0;
+}
+
+.deck-section {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.deck-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-muted);
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+}
+
+.sci-select {
+  background: var(--bg-subtle);
+  color: var(--text-pure);
+  border: 1px solid var(--border-bright);
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  outline: none;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.sci-select:focus {
+  border-color: var(--accent-cyan);
+  box-shadow: 0 0 8px var(--accent-cyan-glow);
+}
+
+.pill-segmented-control {
+  display: flex;
+  background: var(--bg-deep);
+  border: 1px solid var(--border-dim);
+  border-radius: 4px;
+  padding: 2px;
+  gap: 2px;
+}
+
+.seg-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-family: var(--font-mono);
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.seg-btn:hover {
+  color: var(--text-main);
+}
+
+.seg-btn.active {
+  background: var(--accent-cyan);
+  color: #000;
+  box-shadow: 0 0 10px var(--accent-cyan-glow);
+}
+
+.deck-section.actions {
+  margin-left: auto;
+  gap: 8px;
+}
+
+.sci-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg-subtle);
+  color: var(--text-main);
+  border: 1px solid var(--border-bright);
+  padding: 5px 12px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.sci-btn:hover {
+  background: var(--bg-elevated);
+  color: var(--text-pure);
+  border-color: var(--text-muted);
+}
+
+.sci-btn.danger {
+  border-color: rgba(244, 63, 94, 0.4);
+  color: var(--accent-rose);
+  background: rgba(244, 63, 94, 0.08);
+}
+
+.sci-btn.danger:hover {
+  background: rgba(244, 63, 94, 0.2);
+  border-color: var(--accent-rose);
+  box-shadow: 0 0 8px rgba(244, 63, 94, 0.3);
+}
+
+/* ==========================================================================
+   Stimulus Injection Console
+   ========================================================================== */
+.stimulus-console {
+  height: 38px;
+  background: #090d14;
+  border-bottom: 1px solid var(--border-dim);
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
+  gap: 16px;
+  flex-shrink: 0;
+}
+
+.console-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  color: var(--accent-amber);
+}
+
+.console-buttons {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.stim-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border-dim);
+  color: var(--text-main);
+  font-size: 11px;
+  font-weight: 500;
+  padding: 3px 10px;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.stim-btn:hover {
+  background: rgba(0, 240, 255, 0.08);
+  border-color: var(--accent-cyan);
+  color: var(--text-pure);
+}
+
+.stim-indicator {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+.stim-indicator.green { background: var(--accent-emerald); }
+.stim-indicator.red { background: var(--accent-rose); }
+.stim-indicator.cyan { background: var(--accent-cyan); }
+.stim-indicator.yellow { background: var(--accent-amber); }
+
+/* ==========================================================================
+   Main Dual Workspace Layout
+   ========================================================================== */
+.main-workspace {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 520px;
+  gap: 12px;
+  padding: 12px;
+  overflow: hidden;
+}
+
+.hud-panel {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-dim);
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+}
+
+.hud-panel-header {
+  height: 40px;
+  background: rgba(14, 18, 28, 0.95);
+  border-bottom: 1px solid var(--border-dim);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  flex-shrink: 0;
+  z-index: 5;
+}
+
+.hud-panel-header.transparent {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(180deg, rgba(7, 9, 14, 0.85) 0%, transparent 100%);
+  border-bottom: none;
+}
+
+.hud-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  color: var(--text-pure);
+}
+
+.status-marker {
+  width: 7px;
+  height: 7px;
+  border-radius: 1px;
+  background: var(--accent-emerald);
+  box-shadow: 0 0 6px var(--accent-emerald);
+}
+.status-marker.cyan {
+  background: var(--accent-cyan);
+  box-shadow: 0 0 6px var(--accent-cyan);
+}
+
+.hud-metrics-strip {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.hud-metric {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.m-label {
+  font-size: 9px;
+  color: var(--text-muted);
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+.m-val {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-pure);
+}
+
+.highlight-green { color: var(--accent-emerald) !important; }
+.highlight-red { color: var(--accent-rose) !important; }
+
+/* ==========================================================================
+   Left Panel: Tactical Arena Viewport
+   ========================================================================== */
+.arena-canvas-frame {
+  flex: 1;
+  position: relative;
+  background: #05070b;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+#room-three-container {
+  width: 100%;
+  height: 100%;
+  display: block;
+  cursor: grab;
+}
+
+#room-three-container:active {
+  cursor: grabbing;
+}
+
+#arena-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+  cursor: crosshair;
+}
+
+.radar-telemetry-hud-overlay {
+  position: absolute;
+  bottom: 14px;
+  left: 14px;
+  background: rgba(7, 9, 14, 0.8);
+  border: 1px solid var(--border-dim);
+  backdrop-filter: blur(6px);
+  padding: 8px 12px;
+  border-radius: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.radar-hud-line {
+  color: var(--text-muted);
+}
+.radar-hud-line span {
+  color: var(--text-pure);
+  font-weight: 500;
+}
+
+/* ==========================================================================
+   Right Panel: Connectome & Electrophysiology
+   ========================================================================== */
+.connectome-viewport-container {
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-surface);
+}
+
+.connectome-3d-box {
+  height: 280px;
+  position: relative;
+  background: #030509;
+  border-bottom: 1px solid var(--border-dim);
+  flex-shrink: 0;
+}
+
+#connectome-three-container {
+  width: 100%;
+  height: 100%;
+}
+
+.hud-tag {
+  font-size: 10px;
+  font-family: var(--font-mono);
+  color: var(--accent-cyan);
+  background: rgba(0, 240, 255, 0.08);
+  border: 1px solid rgba(0, 240, 255, 0.3);
+  padding: 2px 8px;
+  border-radius: 3px;
+}
+
+.connectome-3d-legend {
+  position: absolute;
+  bottom: 10px;
+  left: 14px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  background: rgba(7, 9, 14, 0.75);
+  border: 1px solid var(--border-dim);
+  backdrop-filter: blur(4px);
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 10px;
+  pointer-events: none;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--text-main);
+}
+
+.leg-color {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+.leg-color.cyan { background: var(--accent-cyan); }
+.leg-color.green { background: var(--accent-emerald); }
+.leg-color.yellow { background: var(--accent-amber); }
+.leg-color.purple { background: var(--accent-purple); }
+.leg-color.red { background: var(--accent-rose); }
+
+.legend-hint {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  margin-left: 4px;
+}
+
+/* ==========================================================================
+   Electrophysiology Dock (Raster + Meters)
+   ========================================================================== */
+.electrophys-dock {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.scope-module {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border-dim);
+  background: var(--bg-surface);
+}
+
+.scope-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.scope-title {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  color: var(--text-muted);
+}
+
+.scope-stats {
+  display: flex;
+  gap: 8px;
+}
+
+.scope-pill {
+  font-size: 10px;
+  font-family: var(--font-mono);
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-dim);
+  padding: 2px 6px;
+  border-radius: 3px;
+  color: var(--text-muted);
+}
+.scope-pill strong {
+  color: var(--accent-cyan);
+}
+
+.raster-frame {
+  height: 90px;
+  background: #020306;
+  border: 1px solid var(--border-dim);
+  border-radius: 3px;
+  overflow: hidden;
+  position: relative;
+}
+
+#raster-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.neuropil-module {
+  flex: 1;
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  background: var(--bg-surface);
+}
+
+.scope-scale {
+  font-size: 9px;
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+}
+
+.neuropil-meters-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-top: 4px;
+}
+
+.meter-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+}
+
+.meter-label {
+  width: 150px;
+  color: var(--text-main);
+  font-size: 10px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.meter-bar-track {
+  flex: 1;
+  height: 5px;
+  background: var(--bg-deep);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.meter-bar-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.1s linear;
+}
+
+.meter-value {
+  width: 55px;
+  text-align: right;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-pure);
+}
