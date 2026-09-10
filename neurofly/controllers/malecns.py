@@ -1,5 +1,6 @@
 """MaleCNS Connectome controller: Biological brain runtime driving agent behavior."""
 
+from pathlib import Path
 from typing import Any, Dict, Optional
 import numpy as np
 import torch
@@ -7,6 +8,7 @@ import torch
 from neurofly.controllers.base import BaseController
 from neurofly.brain.connectome import Connectome
 from neurofly.brain.loader import generate_drosophila_connectome
+from neurofly.brain.malecns import MALECNS_DATASET_ID, load_malecns_v1_bulk
 from neurofly.brain.simulator import BrainSimulator
 from neurofly.sensory.encoder import SensoryEncoder
 from neurofly.motor.decoder import MotorDecoder, MotorAction
@@ -33,9 +35,45 @@ class MaleCNSController(BaseController):
         self.encoder = SensoryEncoder(self.connectome)
         self.decoder = MotorDecoder(self.connectome)
 
+    @classmethod
+    def from_bulk_files(
+        cls,
+        weights_path: str | Path,
+        annotations_path: Optional[str | Path] = None,
+        neurotransmitters_path: Optional[str | Path] = None,
+        *,
+        min_synapses: int = 1,
+        weight_transform: str = "log1p",
+        weight_scale: float = 1.0,
+        ticks_per_step: int = 4,
+        device: Optional[str] = None,
+    ) -> "MaleCNSController":
+        """Build a controller backed by the official MaleCNS v1.0 bulk graph."""
+        connectome = load_malecns_v1_bulk(
+            weights_path=weights_path,
+            annotations_path=annotations_path,
+            neurotransmitters_path=neurotransmitters_path,
+            min_synapses=min_synapses,
+            weight_transform=weight_transform,
+            weight_scale=weight_scale,
+            device=device,
+        )
+        return cls(
+            connectome=connectome,
+            scale="v1.0",
+            ticks_per_step=ticks_per_step,
+            device=device,
+        )
+
+    @property
+    def is_official_malecns(self) -> bool:
+        return self.connectome.metadata.get("dataset_id") == MALECNS_DATASET_ID
+
     @property
     def name(self) -> str:
-        return f"MaleCNS Connectome ({self.scale})"
+        if self.is_official_malecns:
+            return "MaleCNS v1.0 Connectome"
+        return f"Structured Drosophila baseline ({self.scale})"
 
     def reset(self):
         """Reset internal biological brain states."""
@@ -73,4 +111,6 @@ class MaleCNSController(BaseController):
             "active_spikes_count": len(active_spikes),
             "active_spike_indices": active_spikes.tolist()[:100],  # cap for bandwidth
             "neuropil_rates_hz": neuropil_activity,
+            "dataset_id": self.connectome.metadata.get("dataset_id", "synthetic-structured"),
+            "official_malecns": self.is_official_malecns,
         }

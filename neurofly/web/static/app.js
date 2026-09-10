@@ -21,6 +21,20 @@ const overlayPosition = document.getElementById("overlay-position");
 const overlayKinematics = document.getElementById("overlay-kinematics");
 const overlayHeading = document.getElementById("overlay-heading");
 
+// Inside Fly 05 Telemetry & Retinal Elements
+const leftEyeCanvas = document.getElementById("left-eye-canvas");
+const rightEyeCanvas = document.getElementById("right-eye-canvas");
+const smellBarLeft = document.getElementById("smell-bar-left");
+const smellBarRight = document.getElementById("smell-bar-right");
+const smellValLeft = document.getElementById("smell-val-left");
+const smellValRight = document.getElementById("smell-val-right");
+const insideAvgV = document.getElementById("inside-avg-v");
+const insideFractionFiring = document.getElementById("inside-fraction-firing");
+const insideMeanRate = document.getElementById("inside-mean-rate");
+const flyStatusActive = document.getElementById("fly-status-active");
+const flyStatusEscaped = document.getElementById("fly-status-escaped");
+const flyStatusCaught = document.getElementById("fly-status-caught");
+
 // Raster History
 const RASTER_TICKS = 100;
 let rasterBuffer = [];
@@ -202,56 +216,71 @@ function build3DFly() {
   // Chitin material
   const bodyMat = new THREE.MeshStandardMaterial({
     color: 0x1f2937,
-    roughness: 0.4,
-    metalness: 0.3,
+    roughness: 0.35,
+    metalness: 0.4,
   });
 
-  // 1. Thorax & Abdomen
+  // 1. Thorax (Center)
   const thoraxGeo = new THREE.SphereGeometry(3.5, 16, 16);
   const thorax = new THREE.Mesh(thoraxGeo, bodyMat);
-  thorax.scale.set(1.1, 1.4, 0.9);
+  thorax.scale.set(1.1, 0.9, 1.3);
+  thorax.position.set(0, 0, 0);
+  thorax.castShadow = true;
   flyGroup.add(thorax);
 
-  const abdomenGeo = new THREE.SphereGeometry(3.8, 16, 16);
+  // Abdomen (Rear: -Z)
+  const abdomenGeo = new THREE.SphereGeometry(3.6, 16, 16);
   const abdomen = new THREE.Mesh(abdomenGeo, bodyMat);
-  abdomen.scale.set(1.0, 1.8, 0.85);
-  abdomen.position.set(0, -4.5, -0.5);
+  abdomen.scale.set(1.0, 0.85, 1.8);
+  abdomen.position.set(0, -0.4, -4.5);
+  abdomen.castShadow = true;
   flyGroup.add(abdomen);
 
-  // 2. Head
-  const headGeo = new THREE.SphereGeometry(2.5, 16, 16);
+  // 2. Head (Front: +Z)
+  const headGeo = new THREE.SphereGeometry(2.4, 16, 16);
   const head = new THREE.Mesh(headGeo, bodyMat);
-  head.position.set(0, 3.8, 0.5);
+  head.position.set(0, 0.3, 3.4);
+  head.castShadow = true;
   flyGroup.add(head);
 
-  // 3. Two Big Compound Eyes (Directly matching user's prominent eye sketch!)
-  const eyeGeo = new THREE.SphereGeometry(1.9, 20, 20);
+  // 3. Two Big Compound Eyes (Prominent red/amber facets facing forward/angled)
+  const eyeGeo = new THREE.SphereGeometry(1.8, 20, 20);
   const eyeMat = new THREE.MeshStandardMaterial({
     color: 0xd97706,
     roughness: 0.15,
     metalness: 0.6,
-    emissive: 0x92400e,
-    emissiveIntensity: 0.2,
+    emissive: 0xb45309,
+    emissiveIntensity: 0.3,
   });
 
   const leftEye = new THREE.Mesh(eyeGeo, eyeMat);
-  leftEye.scale.set(0.9, 1.3, 1.4);
-  leftEye.position.set(-1.8, 4.2, 1.2);
-  leftEye.rotation.set(0.2, -0.3, 0.1);
+  leftEye.scale.set(0.9, 1.3, 1.3);
+  leftEye.position.set(-1.6, 0.7, 4.0);
+  leftEye.rotation.set(0.1, -0.3, 0.1);
   flyGroup.add(leftEye);
 
   const rightEye = new THREE.Mesh(eyeGeo, eyeMat);
-  rightEye.scale.set(0.9, 1.3, 1.4);
-  rightEye.position.set(1.8, 4.2, 1.2);
-  rightEye.rotation.set(0.2, 0.3, -0.1);
+  rightEye.scale.set(0.9, 1.3, 1.3);
+  rightEye.position.set(1.6, 0.7, 4.0);
+  rightEye.rotation.set(0.1, 0.3, -0.1);
   flyGroup.add(rightEye);
 
-  // 4. Fluttering Translucent Wings
-  const wingGeo = new THREE.PlaneGeometry(5.0, 12.0);
+  // Antennae
+  const antMat = new THREE.MeshBasicMaterial({ color: 0x94a3b8 });
+  for (let side of [-1, 1]) {
+    const antGeo = new THREE.CylinderGeometry(0.1, 0.1, 2.5, 4);
+    const ant = new THREE.Mesh(antGeo, antMat);
+    ant.position.set(side * 0.6, 1.2, 5.0);
+    ant.rotation.set(0.6, side * 0.3, 0);
+    flyGroup.add(ant);
+  }
+
+  // 4. Fluttering Translucent Wings (Attached on dorsal thorax +Y, extending horizontally)
+  const wingGeo = new THREE.PlaneGeometry(12.0, 5.0);
   const wingMat = new THREE.MeshPhysicalMaterial({
     color: 0xffffff,
     transparent: true,
-    opacity: 0.55,
+    opacity: 0.6,
     roughness: 0.1,
     transmission: 0.8,
     ior: 1.4,
@@ -259,29 +288,29 @@ function build3DFly() {
   });
 
   flyLeftWing = new THREE.Mesh(wingGeo, wingMat);
-  flyLeftWing.position.set(-2.5, -1.0, 3.2);
-  flyLeftWing.rotation.set(0, 0.3, 0.2);
+  flyLeftWing.position.set(-7.0, 1.6, -0.5);
+  flyLeftWing.rotation.set(-Math.PI / 2, 0, 0.2);
   flyGroup.add(flyLeftWing);
 
   flyRightWing = new THREE.Mesh(wingGeo, wingMat);
-  flyRightWing.position.set(2.5, -1.0, 3.2);
-  flyRightWing.rotation.set(0, -0.3, -0.2);
+  flyRightWing.position.set(7.0, 1.6, -0.5);
+  flyRightWing.rotation.set(-Math.PI / 2, 0, -0.2);
   flyGroup.add(flyRightWing);
 
-  // 5. Legs (6 little jointed legs)
+  // 5. Six jointed legs angled downwards (-Y)
   const legMat = new THREE.MeshBasicMaterial({ color: 0x111827 });
   for (let side of [-1, 1]) {
     for (let i = 0; i < 3; i++) {
-      const legGeo = new THREE.CylinderGeometry(0.25, 0.25, 6, 6);
+      const legGeo = new THREE.CylinderGeometry(0.2, 0.2, 5.5, 6);
       const leg = new THREE.Mesh(legGeo, legMat);
-      leg.position.set(side * 3.2, (i - 1) * 3.0, -1.8);
-      leg.rotation.set(0, 0, side * 0.8);
+      leg.position.set(side * 2.8, -1.8, (i - 1) * 2.5);
+      leg.rotation.set(0, 0, side * 0.7);
       flyGroup.add(leg);
     }
   }
 
   // Position fly initially
-  flyGroup.position.set(-10, -20, 42);
+  flyGroup.position.set(-10, 42, -20);
   roomScene.add(flyGroup);
 }
 
@@ -344,15 +373,16 @@ function updateRoomFly(flyState, trajectory) {
   // Position in Three.js: X=fly.x, Y=fly.z (height above floor), Z=fly.y (depth)
   flyGroup.position.set(flyState.x, flyState.z, flyState.y);
 
-  // Rotation: Yaw heading around vertical Y axis + Pitch banking
-  flyGroup.rotation.y = -flyState.heading - Math.PI / 2;
-  flyGroup.rotation.x = flyState.pitch || 0;
-  flyGroup.rotation.z = 0;
+  // Point fly directly forward along heading vector
+  const targetX = flyState.x + Math.cos(flyState.heading) * 10;
+  const targetY = flyState.z + (flyState.pitch || 0) * 8;
+  const targetZ = flyState.y + Math.sin(flyState.heading) * 10;
+  flyGroup.lookAt(targetX, targetY, targetZ);
 
   // Wing stroke flapping animation
-  const flutter = Math.sin(Date.now() * 0.05) * 0.45;
-  if (flyLeftWing) flyLeftWing.rotation.z = 0.3 + flutter;
-  if (flyRightWing) flyRightWing.rotation.z = -0.3 - flutter;
+  const flutter = Math.sin(Date.now() * 0.06) * 0.35;
+  if (flyLeftWing) flyLeftWing.rotation.y = flutter;
+  if (flyRightWing) flyRightWing.rotation.y = -flutter;
 
   // Update 3D Trajectory Ribbon (X, Y=z, Z=y)
   if (trajectory && trajectory.length > 1) {
@@ -370,7 +400,7 @@ function updateRoomFly(flyState, trajectory) {
   if (cameraMode === "chase") {
     const offset = new THREE.Vector3(
       -Math.cos(flyState.heading) * 45,
-      18,
+      16,
       -Math.sin(flyState.heading) * 45
     );
     roomCamera.position.copy(flyGroup.position).add(offset);
@@ -386,6 +416,48 @@ function updateRoomFly(flyState, trajectory) {
   overlayPosition.textContent = `X: ${flyState.x.toFixed(1)} | Y: ${flyState.y.toFixed(1)} | Z: ${flyState.z.toFixed(1)} cm`;
   const deg = (((flyState.heading * 180) / Math.PI) % 360).toFixed(1);
   overlayHeading.textContent = `Yaw: ${deg}° | Pitch: ${((flyState.pitch || 0) * 57.3).toFixed(1)}°`;
+}
+
+// --------------------------------------------------------------------------
+// Inside Fly 05: Ommatidia Retinal Pixel Renderer
+// --------------------------------------------------------------------------
+function renderEyeCanvas(canvas, pixels) {
+  if (!canvas) return;
+  const ctx = canvas.getContext("2d");
+  const cw = canvas.width;
+  const ch = canvas.height;
+  const cellSize = cw / 8;
+
+  ctx.fillStyle = "#020408";
+  ctx.fillRect(0, 0, cw, ch);
+
+  if (!pixels || pixels.length < 64) return;
+
+  for (let r = 0; r < 8; r++) {
+    for (let c = 0; c < 8; c++) {
+      const val = Math.min(1.0, Math.max(0.0, pixels[r * 8 + c]));
+      let rCol, gCol, bCol;
+      if (val < 0.2) {
+        // Ambient room dark cyan
+        rCol = Math.floor(10 + val * 30);
+        gCol = Math.floor(25 + val * 120);
+        bCol = Math.floor(40 + val * 180);
+      } else if (val < 0.6) {
+        // Emerald / phosphor green
+        rCol = Math.floor(20 + (val - 0.2) * 100);
+        gCol = Math.floor(120 + (val - 0.2) * 250);
+        bCol = Math.floor(140 - (val - 0.2) * 80);
+      } else {
+        // Sunlight / warm golden food glow
+        rCol = Math.floor(220 + (val - 0.6) * 80);
+        gCol = Math.floor(200 + (val - 0.6) * 130);
+        bCol = Math.floor(80 + (val - 0.6) * 100);
+      }
+
+      ctx.fillStyle = `rgb(${rCol}, ${gCol}, ${bCol})`;
+      ctx.fillRect(c * cellSize + 0.5, r * cellSize + 0.5, cellSize - 1, cellSize - 1);
+    }
+  }
 }
 
 function animateRoomLoop() {
@@ -727,11 +799,38 @@ function connectWebSocket() {
         hudSparsity.textContent = `${data.brain.sparsity_pct || 98.5}%`;
       }
 
-      // 3. HUD Stats
+      // 3. Inside Fly 05: Sensory Retinal Vision & Olfaction
+      if (data.arena && data.arena.inside_fly) {
+        const inside = data.arena.inside_fly;
+        renderEyeCanvas(leftEyeCanvas, inside.left_eye_pixels);
+        renderEyeCanvas(rightEyeCanvas, inside.right_eye_pixels);
+
+        const smellL = Math.min(100, Math.round((inside.smell_left || 0) * 100));
+        const smellR = Math.min(100, Math.round((inside.smell_right || 0) * 100));
+        if (smellBarLeft) smellBarLeft.style.width = `${smellL}%`;
+        if (smellBarRight) smellBarRight.style.width = `${smellR}%`;
+        if (smellValLeft) smellValLeft.textContent = (inside.smell_left || 0).toFixed(2);
+        if (smellValRight) smellValRight.textContent = (inside.smell_right || 0).toFixed(2);
+      }
+
+      // 4. Inside Fly 05: Brain Electrophysiology Metrics
+      if (data.brain) {
+        if (insideAvgV) {
+          insideAvgV.innerHTML = `${(data.brain.avg_electrical_state_mv ?? -65.0).toFixed(1)} <small>mV</small>`;
+        }
+        if (insideFractionFiring) {
+          insideFractionFiring.textContent = `${(data.brain.fraction_firing_pct ?? 0.0).toFixed(1)}%`;
+        }
+        if (insideMeanRate) {
+          insideMeanRate.innerHTML = `${(data.brain.mean_rate_hz ?? 0.0).toFixed(1)} <small>Hz</small>`;
+        }
+      }
+
+      // 5. HUD Stats
       hudStep.textContent = String(data.arena.step).padStart(6, "0");
       hudEnergy.textContent = `${Math.max(0, data.arena.fly.energy).toFixed(1)}%`;
       hudFood.textContent = data.arena.stats.food_eaten;
-      hudCollisions.textContent = data.arena.stats.collisions;
+      if (hudCollisions) hudCollisions.textContent = data.arena.stats.collisions || 0;
       hudDistance.textContent = `${data.arena.stats.distance.toFixed(1)} mm`;
       hudBehaviorState.textContent = data.arena.behavior_state || "INTERIOR_PATROL";
 
@@ -742,7 +841,7 @@ function connectWebSocket() {
       // State chip color
       if (data.arena.behavior_state === "ESCAPE_REFLEX") {
         hudBehaviorState.style.color = "#f43f5e";
-      } else if (data.arena.behavior_state.includes("NUTRIENT") || data.arena.behavior_state.includes("TROPOTAXIS")) {
+      } else if (data.arena.behavior_state && (data.arena.behavior_state.includes("NUTRIENT") || data.arena.behavior_state.includes("TROPOTAXIS"))) {
         hudBehaviorState.style.color = "#10b981";
       } else {
         hudBehaviorState.style.color = "#00f0ff";
@@ -758,17 +857,23 @@ function connectWebSocket() {
 // ==========================================================================
 // 5. User Controls & Stimulus Handlers
 // ==========================================================================
-document.getElementById("controller-select").addEventListener("change", (e) => {
-  if (ws && ws.readyState === WebSocket.OPEN) {
-    ws.send(JSON.stringify({ action: "set_controller", controller: e.target.value }));
-  }
-});
+const ctrlSelect = document.getElementById("controller-select");
+if (ctrlSelect) {
+  ctrlSelect.addEventListener("change", (e) => {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ action: "set_controller", controller: e.target.value }));
+    }
+  });
+}
 
-document.getElementById("env-select").addEventListener("change", (e) => {
-  if (ws && ws.readyState === WebSocket.OPEN) {
-    ws.send(JSON.stringify({ action: "set_env", env: e.target.value }));
-  }
-});
+const envSelect = document.getElementById("env-select");
+if (envSelect) {
+  envSelect.addEventListener("change", (e) => {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ action: "set_env", env: e.target.value }));
+    }
+  });
+}
 
 // Camera segmented buttons
 document.querySelectorAll("#camera-modes .seg-btn").forEach((btn) => {
@@ -782,22 +887,28 @@ document.querySelectorAll("#camera-modes .seg-btn").forEach((btn) => {
   });
 });
 
-document.getElementById("btn-reset").addEventListener("click", () => {
-  if (ws && ws.readyState === WebSocket.OPEN) {
-    ws.send(JSON.stringify({ action: "reset" }));
-  }
-});
+const btnReset = document.getElementById("btn-reset");
+if (btnReset) {
+  btnReset.addEventListener("click", () => {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ action: "reset" }));
+    }
+  });
+}
 
-document.getElementById("btn-pause").addEventListener("click", (e) => {
-  isPaused = !isPaused;
-  e.target.innerHTML = isPaused
-    ? `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg> RESUME`
-    : `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg> PAUSE`;
+const btnPause = document.getElementById("btn-pause");
+if (btnPause) {
+  btnPause.addEventListener("click", (e) => {
+    isPaused = !isPaused;
+    e.currentTarget.innerHTML = isPaused
+      ? `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg> RESUME`
+      : `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg> PAUSE`;
 
-  if (ws && ws.readyState === WebSocket.OPEN) {
-    ws.send(JSON.stringify({ action: "pause" }));
-  }
-});
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ action: "pause" }));
+    }
+  });
+}
 
 document.querySelectorAll(".command-deck .seg-btn[data-speed]").forEach((btn) => {
   btn.addEventListener("click", () => {
@@ -811,41 +922,59 @@ document.querySelectorAll(".command-deck .seg-btn[data-speed]").forEach((btn) =>
 });
 
 // Stimulus Actions
-document.getElementById("stim-food-table").addEventListener("click", () => {
-  if (ws && ws.readyState === WebSocket.OPEN) {
-    ws.send(JSON.stringify({ action: "stimulus", type: "drop_food_table" }));
-  }
-});
+const btnFoodTable = document.getElementById("stim-food-table");
+if (btnFoodTable) {
+  btnFoodTable.addEventListener("click", () => {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ action: "stimulus", type: "drop_food_table" }));
+    }
+  });
+}
 
-document.getElementById("stim-food-floor").addEventListener("click", () => {
-  if (ws && ws.readyState === WebSocket.OPEN) {
-    ws.send(JSON.stringify({ action: "stimulus", type: "drop_food_floor" }));
-  }
-});
+const btnFoodFloor = document.getElementById("stim-food-floor");
+if (btnFoodFloor) {
+  btnFoodFloor.addEventListener("click", () => {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ action: "stimulus", type: "drop_food_floor" }));
+    }
+  });
+}
 
-document.getElementById("stim-threat").addEventListener("click", () => {
-  if (ws && ws.readyState === WebSocket.OPEN) {
-    ws.send(JSON.stringify({ action: "stimulus", type: "spawn_threat" }));
-  }
-});
+const btnThreat = document.getElementById("stim-threat");
+if (btnThreat) {
+  btnThreat.addEventListener("click", () => {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ action: "stimulus", type: "spawn_threat" }));
+    }
+  });
+}
 
-document.getElementById("stim-light-l").addEventListener("click", () => {
-  if (ws && ws.readyState === WebSocket.OPEN) {
-    ws.send(JSON.stringify({ action: "stimulus", type: "flash_light", side: "left" }));
-  }
-});
+const btnLightL = document.getElementById("stim-light-l");
+if (btnLightL) {
+  btnLightL.addEventListener("click", () => {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ action: "stimulus", type: "flash_light", side: "left" }));
+    }
+  });
+}
 
-document.getElementById("stim-light-r").addEventListener("click", () => {
-  if (ws && ws.readyState === WebSocket.OPEN) {
-    ws.send(JSON.stringify({ action: "stimulus", type: "flash_light", side: "right" }));
-  }
-});
+const btnLightR = document.getElementById("stim-light-r");
+if (btnLightR) {
+  btnLightR.addEventListener("click", () => {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ action: "stimulus", type: "flash_light", side: "right" }));
+    }
+  });
+}
 
-document.getElementById("stim-zap").addEventListener("click", () => {
-  if (ws && ws.readyState === WebSocket.OPEN) {
-    ws.send(JSON.stringify({ action: "stimulus", type: "zap_cx" }));
-  }
-});
+const btnZap = document.getElementById("stim-zap");
+if (btnZap) {
+  btnZap.addEventListener("click", () => {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ action: "stimulus", type: "zap_cx" }));
+    }
+  });
+}
 
 // Bootstrap Both 3D Canvas
 window.addEventListener("DOMContentLoaded", () => {

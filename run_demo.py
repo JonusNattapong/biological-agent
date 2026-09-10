@@ -1,8 +1,8 @@
 """One-click launcher for NeuroFly: Web Playground, Benchmark Suite, or CLI Demo."""
 
 import argparse
+import os
 import sys
-import time
 
 # Ensure UTF-8 output encoding for Windows consoles
 if hasattr(sys.stdout, "reconfigure"):
@@ -11,13 +11,72 @@ if hasattr(sys.stdout, "reconfigure"):
     except Exception:
         pass
 
-def run_web(host: str = "127.0.0.1", port: int = 8000):
+def _build_brain_controller(
+    *,
+    weights: str | None = None,
+    annotations: str | None = None,
+    neurotransmitters: str | None = None,
+    min_synapses: int = 1,
+    weight_transform: str = "log1p",
+    weight_scale: float = 1.0,
+    synthetic_scale: str = "micro",
+):
+    from neurofly.controllers import MaleCNSController
+
+    if weights:
+        return MaleCNSController.from_bulk_files(
+            weights_path=weights,
+            annotations_path=annotations,
+            neurotransmitters_path=neurotransmitters,
+            min_synapses=min_synapses,
+            weight_transform=weight_transform,
+            weight_scale=weight_scale,
+        )
+    return MaleCNSController(scale=synthetic_scale)
+
+
+def run_web(
+    host: str = "0.0.0.0",
+    port: int = 8000,
+    *,
+    weights: str | None = None,
+    annotations: str | None = None,
+    neurotransmitters: str | None = None,
+    min_synapses: int = 1,
+    weight_transform: str = "log1p",
+    weight_scale: float = 1.0,
+):
     """Launch the Web Playground server."""
     import uvicorn
+
+    if weights:
+        os.environ["NEUROFLY_MALECNS_WEIGHTS"] = weights
+        if annotations:
+            os.environ["NEUROFLY_MALECNS_ANNOTATIONS"] = annotations
+        if neurotransmitters:
+            os.environ["NEUROFLY_MALECNS_NEUROTRANSMITTERS"] = neurotransmitters
+        os.environ["NEUROFLY_MALECNS_MIN_SYNAPSES"] = str(min_synapses)
+        os.environ["NEUROFLY_MALECNS_WEIGHT_TRANSFORM"] = weight_transform
+        os.environ["NEUROFLY_MALECNS_WEIGHT_SCALE"] = str(weight_scale)
+        print("🧠 Using official MaleCNS v1.0 bulk connectivity")
+    else:
+        print("🧪 Using structured synthetic Drosophila baseline (no MaleCNS weights supplied)")
+
     print(f"🚀 Starting NeuroFly Web Playground at http://{host}:{port}")
     uvicorn.run("neurofly.web.server:app", host=host, port=port, reload=False)
 
-def run_benchmark(num_episodes: int = 3, max_steps: int = 400):
+
+def run_benchmark(
+    num_episodes: int = 3,
+    max_steps: int = 400,
+    *,
+    weights: str | None = None,
+    annotations: str | None = None,
+    neurotransmitters: str | None = None,
+    min_synapses: int = 1,
+    weight_transform: str = "log1p",
+    weight_scale: float = 1.0,
+):
     """Run comparative benchmark across all controllers."""
     from neurofly.controllers import (
         RandomController,
@@ -32,7 +91,15 @@ def run_benchmark(num_episodes: int = 3, max_steps: int = 400):
         RandomController(),
         TinyNNController(),
         HeuristicController(),
-        MaleCNSController(scale="micro"),
+        _build_brain_controller(
+            weights=weights,
+            annotations=annotations,
+            neurotransmitters=neurotransmitters,
+            min_synapses=min_synapses,
+            weight_transform=weight_transform,
+            weight_scale=weight_scale,
+            synthetic_scale="micro",
+        ),
     ]
 
     print(f"Running {num_episodes} episodes x {max_steps} max steps across {len(controllers)} controllers...\n")
@@ -45,14 +112,31 @@ def run_benchmark(num_episodes: int = 3, max_steps: int = 400):
     print("=" * 60)
     print(table)
 
-def run_cli(steps: int = 100):
+def run_cli(
+    steps: int = 100,
+    *,
+    weights: str | None = None,
+    annotations: str | None = None,
+    neurotransmitters: str | None = None,
+    min_synapses: int = 1,
+    weight_transform: str = "log1p",
+    weight_scale: float = 1.0,
+):
     """Run CLI demo showing text-based telemetry."""
     from neurofly.environments import SurvivalArena
-    from neurofly.controllers import MaleCNSController
 
-    print("🪰 Initializing MaleCNS Connectome & Survival Arena...")
+    print("🪰 Initializing biological controller & Survival Arena...")
     arena = SurvivalArena(max_steps=steps)
-    agent = MaleCNSController(scale="micro")
+    agent = _build_brain_controller(
+        weights=weights,
+        annotations=annotations,
+        neurotransmitters=neurotransmitters,
+        min_synapses=min_synapses,
+        weight_transform=weight_transform,
+        weight_scale=weight_scale,
+        synthetic_scale="micro",
+    )
+    print(f"Brain source: {agent.name}")
 
     obs = arena.reset()
     agent.reset()
@@ -84,15 +168,34 @@ def main():
     parser.add_argument("--port", type=int, default=8000, help="Web port (default: 8000)")
     parser.add_argument("--steps", type=int, default=150, help="Simulation steps for CLI")
     parser.add_argument("--episodes", type=int, default=3, help="Benchmark episodes per controller")
+    parser.add_argument("--malecns-weights", help="official MaleCNS v1.0 connectome-weights Feather path")
+    parser.add_argument("--malecns-annotations", help="official MaleCNS v1.0 body-annotations Feather path")
+    parser.add_argument("--malecns-neurotransmitters", help="official MaleCNS v1.0 body-neurotransmitters Feather path")
+    parser.add_argument("--min-synapses", type=int, default=1, help="minimum MaleCNS edge synapse count")
+    parser.add_argument(
+        "--weight-transform",
+        choices=["raw", "sqrt", "log1p", "binary"],
+        default="log1p",
+        help="map MaleCNS synapse counts to simulator weights",
+    )
+    parser.add_argument("--weight-scale", type=float, default=1.0, help="simulation weight multiplier")
 
     args = parser.parse_args()
+    dataset_kwargs = {
+        "weights": args.malecns_weights,
+        "annotations": args.malecns_annotations,
+        "neurotransmitters": args.malecns_neurotransmitters,
+        "min_synapses": args.min_synapses,
+        "weight_transform": args.weight_transform,
+        "weight_scale": args.weight_scale,
+    }
 
     if args.web:
-        run_web(port=args.port)
+        run_web(port=args.port, **dataset_kwargs)
     elif args.benchmark:
-        run_benchmark(num_episodes=args.episodes)
+        run_benchmark(num_episodes=args.episodes, max_steps=args.steps, **dataset_kwargs)
     elif args.cli:
-        run_cli(steps=args.steps)
+        run_cli(steps=args.steps, **dataset_kwargs)
     else:
         # Default: show help or launch web
         print("No mode specified. Use --web, --benchmark, or --cli.")

@@ -11,3 +11,11 @@ build/
 .venv/
 venv/
 .DS_Store
+
+# Large biological datasets and generated caches
+data/raw/*
+!data/raw/.gitkeep
+data/cache/
+*.pt
+*.pth
+*.log

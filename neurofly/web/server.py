@@ -21,6 +21,31 @@ from neurofly.brain.connectome import Neuropil
 
 app = FastAPI(title="NeuroFly Lab", version="0.1.0")
 
+MAX_RENDER_NEURONS = 5000
+MAX_RENDER_SPIKES = 2000
+
+
+def _build_malecns_controller() -> MaleCNSController:
+    """Build the configured biological controller.
+
+    The web playground uses the lightweight structured baseline by default.
+    Set ``NEUROFLY_MALECNS_WEIGHTS`` (plus optional annotation/NT paths) to
+    activate the official MaleCNS v1.0 graph.
+    """
+    weights = os.getenv("NEUROFLY_MALECNS_WEIGHTS")
+    if not weights:
+        return MaleCNSController(scale=os.getenv("NEUROFLY_SYNTHETIC_SCALE", "standard"))
+
+    return MaleCNSController.from_bulk_files(
+        weights_path=weights,
+        annotations_path=os.getenv("NEUROFLY_MALECNS_ANNOTATIONS") or None,
+        neurotransmitters_path=os.getenv("NEUROFLY_MALECNS_NEUROTRANSMITTERS") or None,
+        min_synapses=int(os.getenv("NEUROFLY_MALECNS_MIN_SYNAPSES", "1")),
+        weight_transform=os.getenv("NEUROFLY_MALECNS_WEIGHT_TRANSFORM", "log1p"),
+        weight_scale=float(os.getenv("NEUROFLY_MALECNS_WEIGHT_SCALE", "1.0")),
+    )
+
+
 STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
 if not os.path.exists(STATIC_DIR):
     os.makedirs(STATIC_DIR, exist_ok=True)
@@ -37,7 +62,7 @@ class SimulationManager:
         self.active_env_key = "house"
 
         self.controllers = {
-            "malecns": MaleCNSController(scale="standard"),
+            "malecns": _build_malecns_controller(),
             "heuristic": HeuristicController(),
             "tinynn": TinyNNController(),
             "random": RandomController(),
@@ -49,6 +74,7 @@ class SimulationManager:
 
         # Trajectory buffer (3D positions)
         self.trajectory = deque(maxlen=80)
+        self._brain_render_lookup: Dict[int, int] = {}
 
         self.obs = self.active_env.reset()
         self.active_controller.reset()
@@ -86,22 +112,55 @@ class SimulationManager:
             self.trajectory.append([round(float(pos[0]), 2), round(float(pos[1]), 2), 35.0])
 
     def get_static_brain_data(self) -> Dict[str, Any]:
-        """Return 3D coordinates, neuropils, and synaptic sample tracts."""
-        if isinstance(self.active_controller, MaleCNSController):
-            conn = self.active_controller.connectome
-            indices = conn.weight_matrix.indices().cpu().numpy()
-            total_edges = indices.shape[1]
-            sample_step = max(1, total_edges // 600)
-            sampled_edges = indices[:, ::sample_step].tolist()
+        """Return a bounded 3D rendering view of the active connectome."""
+        if not isinstance(self.active_controller, MaleCNSController):
+            self._brain_render_lookup = {}
+            return {"num_neurons": 0, "num_synapses": 0, "coordinates": [], "neuropils": [], "synaptic_tracts": []}
 
-            return {
-                "num_neurons": conn.num_neurons,
-                "num_synapses": conn.num_synapses,
-                "coordinates": conn.coordinates.tolist(),
-                "neuropils": [np_type.value for np_type in conn.neuron_neuropils],
-                "synaptic_tracts": sampled_edges,
-            }
-        return {"num_neurons": 0, "num_synapses": 0, "coordinates": [], "neuropils": [], "synaptic_tracts": []}
+        conn = self.active_controller.connectome
+        if conn.num_neurons <= MAX_RENDER_NEURONS:
+            render_indices = np.arange(conn.num_neurons, dtype=np.int64)
+        else:
+            # Deterministic even sampling keeps browser payloads bounded while
+            # preserving coverage across the indexed graph.
+            render_indices = np.linspace(0, conn.num_neurons - 1, MAX_RENDER_NEURONS, dtype=np.int64)
+
+        self._brain_render_lookup = {int(src): i for i, src in enumerate(render_indices)}
+        coords = conn.coordinates[render_indices].astype(np.float32, copy=True)
+
+        # MaleCNS somaLocation coordinates are voxel-space values (~10^4-10^5),
+        # whereas the browser scene expects a compact centered cloud. This is
+        # a display-only normalization; the Connectome retains source coords.
+        if coords.size:
+            nonzero = np.any(coords != 0.0, axis=1)
+            if nonzero.any():
+                center = np.median(coords[nonzero], axis=0)
+                coords[nonzero] -= center
+                radii = np.linalg.norm(coords[nonzero], axis=1)
+                scale = float(np.percentile(radii, 95)) if radii.size else 1.0
+                if scale > 0:
+                    coords[nonzero] *= 180.0 / scale
+
+        # Tracts are sampled only for small/medium graphs where local indices
+        # map directly enough to provide useful context. Large graphs would
+        # otherwise require scanning millions of edges for a decorative view.
+        sampled_edges = [[], []]
+        indices = conn.weight_matrix.indices().cpu().numpy()
+        total_edges = indices.shape[1]
+        if conn.num_neurons <= MAX_RENDER_NEURONS:
+            sample_step = max(1, total_edges // 600)
+            sampled_edges = indices[:, ::sample_step][:, :600].tolist()
+
+        return {
+            "num_neurons": conn.num_neurons,
+            "rendered_neurons": int(len(render_indices)),
+            "num_synapses": conn.num_synapses,
+            "coordinates": coords.tolist(),
+            "neuropils": [conn.neuron_neuropils[int(i)].value for i in render_indices],
+            "synaptic_tracts": sampled_edges,
+            "dataset_id": conn.metadata.get("dataset_id", "synthetic-structured"),
+            "official_malecns": self.active_controller.is_official_malecns,
+        }
 
     def _determine_behavior_state(self, obs: Dict[str, Any], action: Any) -> str:
         """Classify biological behavior mode."""
@@ -146,11 +205,21 @@ class SimulationManager:
         brain_data = {}
         if isinstance(self.active_controller, MaleCNSController):
             sim = self.active_controller.simulator
-            active_spikes = sim.get_active_spikes().tolist()
+            raw_active_spikes = sim.get_active_spikes().tolist()
+            if self._brain_render_lookup:
+                active_spikes = [
+                    self._brain_render_lookup[idx]
+                    for idx in raw_active_spikes
+                    if idx in self._brain_render_lookup
+                ][:MAX_RENDER_SPIKES]
+            else:
+                active_spikes = raw_active_spikes[:MAX_RENDER_SPIKES]
             neuropils = sim.get_neuropil_activity()
             num_neurons = sim.num_neurons
-            active_count = len(active_spikes)
+            active_count = len(raw_active_spikes)
             sparsity = round((1.0 - (active_count / max(1, num_neurons))) * 100.0, 1)
+            avg_v = round(float(sim.neurons.v.mean().item()), 1)
+            fraction_firing = round((active_count / max(1, num_neurons)) * 100.0, 2)
             mean_rate = round(float(sim.smoothed_firing_rate.mean().item()), 1)
 
             brain_data = {
@@ -159,6 +228,10 @@ class SimulationManager:
                 "active_count": active_count,
                 "sparsity_pct": sparsity,
                 "mean_rate_hz": mean_rate,
+                "avg_electrical_state_mv": avg_v,
+                "fraction_firing_pct": fraction_firing,
+                "dataset_id": self.active_controller.connectome.metadata.get("dataset_id", "synthetic-structured"),
+                "official_malecns": self.active_controller.is_official_malecns,
             }
 
         # Action data
@@ -236,6 +309,16 @@ async def get_index():
     return FileResponse(os.path.join(STATIC_DIR, "index.html"))
 
 
+@app.get("/api/status")
+async def get_status():
+    return {
+        "status": "online",
+        "environment": manager.active_env_key,
+        "controller": manager.active_controller_key,
+        "step": manager.active_env.steps_survived,
+    }
+
+
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
@@ -275,7 +358,7 @@ async def websocket_endpoint(websocket: WebSocket):
                     manager.speed_multiplier = int(cmd.get("speed", 1))
                 elif action == "stimulus":
                     manager.inject_stimulus(cmd)
-        except WebSocketDisconnect:
+        except (WebSocketDisconnect, Exception):
             pass
 
     async def broadcast_loop():
@@ -292,7 +375,7 @@ async def websocket_endpoint(websocket: WebSocket):
 
                 delay = max(0.005, manager.step_delay / max(1, manager.speed_multiplier))
                 await asyncio.sleep(delay)
-        except WebSocketDisconnect:
+        except (WebSocketDisconnect, Exception):
             pass
 
     listener_task = asyncio.create_task(incoming_listener())

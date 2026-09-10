@@ -23,4 +23,4 @@ def test_benchmark_runner():
 
     md_table = BenchmarkRunner.format_markdown_table(results)
     assert "| Controller |" in md_table
-    assert "MaleCNS Connectome (micro)" in md_table
+    assert "Structured Drosophila baseline (micro)" in md_table

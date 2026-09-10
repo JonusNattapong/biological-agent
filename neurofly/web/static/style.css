@@ -553,6 +553,183 @@ body {
 }
 
 /* ==========================================================================
+   Inside Fly 05: Sensory Retinal & Bio-Telemetry Diagnostics
+   ========================================================================== */
+.inside-fly-section {
+  background: #080b12;
+  border-bottom: 1px solid var(--border-dim);
+  padding: 8px 14px;
+  flex-shrink: 0;
+}
+
+.inside-fly-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.inside-fly-title {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  color: var(--text-pure);
+}
+
+.status-marker.emerald {
+  background: var(--accent-emerald);
+  box-shadow: 0 0 6px var(--accent-emerald);
+}
+
+.fly-status-counters {
+  display: flex;
+  gap: 6px;
+}
+
+.fly-counter-pill {
+  font-size: 9px;
+  font-family: var(--font-mono);
+  padding: 1px 6px;
+  border-radius: 3px;
+  border: 1px solid var(--border-dim);
+}
+
+.fly-counter-pill.active {
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.08);
+  border-color: rgba(56, 189, 248, 0.3);
+}
+
+.fly-counter-pill.escaped {
+  color: #f59e0b;
+  background: rgba(245, 158, 11, 0.08);
+  border-color: rgba(245, 158, 11, 0.3);
+}
+
+.fly-counter-pill.caught {
+  color: #f43f5e;
+  background: rgba(244, 63, 94, 0.08);
+  border-color: rgba(244, 63, 94, 0.3);
+}
+
+.inside-fly-body {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.retina-vision-block {
+  display: flex;
+  gap: 8px;
+}
+
+.eye-viewport-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+
+.eye-title {
+  font-size: 8px;
+  font-family: var(--font-mono);
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.eye-canvas-wrap {
+  width: 58px;
+  height: 58px;
+  border: 1px solid rgba(0, 240, 255, 0.3);
+  border-radius: 4px;
+  background: #020408;
+  box-shadow: inset 0 0 8px rgba(0, 240, 255, 0.15), 0 0 6px rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px;
+}
+
+#left-eye-canvas, #right-eye-canvas {
+  width: 52px;
+  height: 52px;
+  display: block;
+  image-rendering: pixelated;
+}
+
+.inside-telemetry-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.smell-meter-box {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.smell-meter-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.smell-label {
+  font-size: 9px;
+  font-family: var(--font-mono);
+  color: var(--text-main);
+  width: 130px;
+  white-space: nowrap;
+}
+
+.smell-num {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--accent-emerald);
+  width: 32px;
+  text-align: right;
+}
+
+.meter-bar-fill.emerald {
+  background: linear-gradient(90deg, #059669, #10b981);
+}
+
+.bio-stat-row {
+  display: flex;
+  gap: 6px;
+}
+
+.bio-card {
+  flex: 1;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-dim);
+  border-radius: 3px;
+  padding: 3px 6px;
+  display: flex;
+  flex-direction: column;
+}
+
+.bio-card-label {
+  font-size: 7.5px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.bio-card-val {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-pure);
+  margin-top: 1px;
+}
+
+/* ==========================================================================
    Electrophysiology Dock (Raster + Meters)
    ========================================================================== */
 .electrophys-dock {

@@ -121,7 +121,7 @@
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
         </svg>
-        INTERACTIVE STIMULUS:
+        PEACEFUL CRUISE & SENSORY STIMULUS:
       </div>
       <div class="console-buttons">
         <button class="stim-btn" id="stim-food-table">
@@ -132,21 +132,17 @@
           <span class="stim-indicator green"></span>
           Drop Sugar on Floor
         </button>
-        <button class="stim-btn" id="stim-threat">
-          <span class="stim-indicator red"></span>
-          Deploy Fly Swatter Hazard
-        </button>
         <button class="stim-btn" id="stim-light-l">
           <span class="stim-indicator cyan"></span>
-          Light: Left Eye
+          Sunlight: Left Eye
         </button>
         <button class="stim-btn" id="stim-light-r">
           <span class="stim-indicator cyan"></span>
-          Light: Right Eye
+          Sunlight: Right Eye
         </button>
         <button class="stim-btn" id="stim-zap">
           <span class="stim-indicator yellow"></span>
-          Shock Central Complex
+          Pulse Central Complex
         </button>
       </div>
     </div>
@@ -168,10 +164,6 @@
             <div class="hud-metric">
               <span class="m-label">FOOD CONSUMED:</span>
               <span class="m-val font-mono highlight-green" id="hud-food">0</span>
-            </div>
-            <div class="hud-metric">
-              <span class="m-label">COLLISIONS:</span>
-              <span class="m-val font-mono highlight-red" id="hud-collisions">0</span>
             </div>
             <div class="hud-metric">
               <span class="m-label">FLIGHT DISTANCE:</span>
@@ -217,7 +209,77 @@
             <div class="legend-item"><span class="leg-color yellow"></span> Central Complex</div>
             <div class="legend-item"><span class="leg-color purple"></span> Mushroom Body</div>
             <div class="legend-item"><span class="leg-color red"></span> Descending Motor</div>
-            <div class="legend-hint">Orbit: Left-drag | Zoom: Scroll</div>
+            <div class="legend-hint">Orbit: Drag | Zoom: Scroll</div>
+          </div>
+        </div>
+
+        <!-- Inside Fly 05: Sensory & Bio-Telemetry Diagnostics -->
+        <div class="inside-fly-section">
+          <div class="inside-fly-header">
+            <div class="inside-fly-title">
+              <span class="status-marker emerald"></span>
+              INSIDE FLY 05 // SENSORY & TELEMETRY
+            </div>
+            <div class="fly-status-counters">
+              <span class="fly-counter-pill active"><strong id="fly-status-active">11</strong> active</span>
+              <span class="fly-counter-pill escaped"><strong id="fly-status-escaped">1</strong> escaped</span>
+              <span class="fly-counter-pill caught"><strong id="fly-status-caught">4</strong> caught</span>
+            </div>
+          </div>
+
+          <div class="inside-fly-body">
+            <!-- Left & Right Compound Eye Vision (What the fly sees) -->
+            <div class="retina-vision-block">
+              <div class="eye-viewport-box">
+                <div class="eye-title">LEFT EYE (8×8)</div>
+                <div class="eye-canvas-wrap">
+                  <canvas id="left-eye-canvas" width="64" height="64"></canvas>
+                </div>
+              </div>
+              <div class="eye-viewport-box">
+                <div class="eye-title">RIGHT EYE (8×8)</div>
+                <div class="eye-canvas-wrap">
+                  <canvas id="right-eye-canvas" width="64" height="64"></canvas>
+                </div>
+              </div>
+            </div>
+
+            <!-- Smell Excitation & Electrical Telemetry -->
+            <div class="inside-telemetry-col">
+              <!-- Antennal Smell Excitation Bars -->
+              <div class="smell-meter-box">
+                <div class="smell-meter-row">
+                  <span class="smell-label">Smell excitation - left</span>
+                  <div class="meter-bar-track">
+                    <div id="smell-bar-left" class="meter-bar-fill emerald" style="width: 0%;"></div>
+                  </div>
+                  <span class="smell-num font-mono" id="smell-val-left">0.00</span>
+                </div>
+                <div class="smell-meter-row">
+                  <span class="smell-label">Smell excitation - right</span>
+                  <div class="meter-bar-track">
+                    <div id="smell-bar-right" class="meter-bar-fill emerald" style="width: 0%;"></div>
+                  </div>
+                  <span class="smell-num font-mono" id="smell-val-right">0.00</span>
+                </div>
+              </div>
+
+              <!-- Electrical State & Fraction Firing Chips -->
+              <div class="bio-stat-row">
+                <div class="bio-card">
+                  <span class="bio-card-label">Average electrical state</span>
+                  <span class="bio-card-val font-mono" id="inside-avg-v">-65.0 <small>mV</small></span>
+                </div>
+                <div class="bio-card">
+                  <span class="bio-card-label">Fraction firing</span>
+                  <span class="bio-card-val font-mono highlight-cyan" id="inside-fraction-firing">0.0%</span>
+                </div>
+                <div class="bio-card">
+                  <span class="bio-card-label">Mean firing rate</span>
+                  <span class="bio-card-val font-mono" id="inside-mean-rate">0.0 <small>Hz</small></span>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 

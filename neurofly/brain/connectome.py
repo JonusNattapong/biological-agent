@@ -1,7 +1,7 @@
 """Connectome representation, neuropils, and sparse synaptic weight graph."""
 
 from enum import Enum
-from typing import Dict, List, Optional
+from typing import Any, Dict, Iterable, List, Optional
 import numpy as np
 import torch
 
@@ -29,12 +29,22 @@ class Connectome:
         neuron_neuropils: List[Neuropil],
         coordinates: np.ndarray,  # shape (num_neurons, 3) in microns
         neuron_names: Optional[List[str]] = None,
+        body_ids: Optional[Iterable[int]] = None,
+        metadata: Optional[Dict[str, Any]] = None,
         device: Optional[str] = None,
     ):
         self.num_neurons = num_neurons
         self.neuron_neuropils = neuron_neuropils
         self.coordinates = coordinates
         self.neuron_names = neuron_names or [f"neuron_{i}" for i in range(num_neurons)]
+        self.body_ids = np.asarray(
+            list(body_ids) if body_ids is not None else np.arange(num_neurons),
+            dtype=np.int64,
+        )
+        if self.body_ids.shape != (num_neurons,):
+            raise ValueError("body_ids must contain exactly num_neurons entries")
+        self.body_id_to_index = {int(body): i for i, body in enumerate(self.body_ids)}
+        self.metadata: Dict[str, Any] = dict(metadata or {})
         self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
 
         # Create PyTorch sparse COO tensor for synaptic weights
@@ -56,6 +66,15 @@ class Connectome:
     def get_neuropil_indices(self, neuropil: Neuropil) -> torch.Tensor:
         """Get neuron indices belonging to a specific neuropil."""
         return self.neuropil_map.get(neuropil, torch.empty(0, dtype=torch.long, device=self.device))
+
+    def get_body_indices(self, body_ids: Iterable[int]) -> torch.Tensor:
+        """Map external connectome body IDs to local tensor indices."""
+        indices = [
+            self.body_id_to_index[int(body)]
+            for body in body_ids
+            if int(body) in self.body_id_to_index
+        ]
+        return torch.tensor(indices, dtype=torch.long, device=self.device)
 
     def propagate_spikes(self, spikes: torch.Tensor) -> torch.Tensor:
         """Propagate presynaptic spikes across the connectome graph.

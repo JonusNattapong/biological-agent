@@ -1,11 +1,11 @@
 """Connectome generator and dataset loaders for Drosophila brain circuits with E/I balance."""
 
-import os
 from typing import Dict, List, Optional, Tuple
 import numpy as np
 import torch
 
 from neurofly.brain.connectome import Connectome, Neuropil
+from neurofly.brain.malecns import load_malecns_v1_bulk
 
 
 def generate_drosophila_connectome(
@@ -167,12 +167,33 @@ def generate_drosophila_connectome(
         neuron_neuropils=neuron_neuropils,
         coordinates=coordinates,
         neuron_names=neuron_names,
+        metadata={
+            "dataset_id": "synthetic-structured-v0.1",
+            "connectivity_source": "generated",
+            "biological_data": False,
+            "scale": scale,
+        },
         device=device,
     )
 
 
-def load_connectome_from_file(filepath: str, device: Optional[str] = None) -> Connectome:
-    """Load connectome from a file or fallback."""
-    if not os.path.exists(filepath):
-        raise FileNotFoundError(f"Connectome file not found: {filepath}")
-    return generate_drosophila_connectome(scale="standard", device=device)
+def load_connectome_from_file(
+    filepath: str,
+    device: Optional[str] = None,
+    annotations_path: Optional[str] = None,
+    neurotransmitters_path: Optional[str] = None,
+    min_synapses: int = 1,
+) -> Connectome:
+    """Load an official MaleCNS v1.0 bulk connection Feather file.
+
+    ``filepath`` must be the MaleCNS segment-to-segment weights export. The
+    old implementation silently returned a generated graph regardless of file
+    contents; this function now performs real dataset ingestion.
+    """
+    return load_malecns_v1_bulk(
+        weights_path=filepath,
+        annotations_path=annotations_path,
+        neurotransmitters_path=neurotransmitters_path,
+        min_synapses=min_synapses,
+        device=device,
+    )

@@ -1,4 +1,4 @@
-"""3D House Room Environment: A realistic interior living space with furniture, food, and lights."""
+"""3D House Room Environment: Natural biological flight and Inside-Fly compound eye perception."""
 
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
@@ -22,20 +22,19 @@ class HouseFood:
 
 
 class HouseRoomEnvironment(BaseEnvironment):
-    """3D House Room environment matching third-person interior perspective.
+    """3D House Room environment designed for peaceful biological observation.
 
     Features:
-    - 3D Room: Width [-140, 140], Depth [-90, 90], Height [0, 100]
-    - Furniture: Dining/work table on left, door with knob on right wall, window on back
-    - Light Source: Window sunlight / ceiling lamp (phototaxis)
-    - Food: Fruit/cake on table and sugar on floor
-    - 3D Flight Kinematics: Fly banks, pitches, cruises, and lands
+    - Natural aerodynamic flight: smooth cruising, banking, and gentle wall avoidance
+    - "Inside Fly 05" perception: 8x8 compound eye retinas for Left and Right eyes
+    - Realistic room furniture: Table on the left, Door on the right, Window sunlight
+    - No stress/death: Peaceful observation of biological connectome behavior
     """
 
     def __init__(
         self,
-        include_predator: bool = True,
-        max_steps: int = 2500,
+        include_predator: bool = False,  # Off by default for pure observation
+        max_steps: int = 10000,
         seed: Optional[int] = 42,
     ):
         self.max_steps = max_steps
@@ -43,18 +42,18 @@ class HouseRoomEnvironment(BaseEnvironment):
         if seed is not None:
             np.random.seed(seed)
 
-        # Room bounds (cm / model units)
-        self.room_x = [-130.0, 130.0]
-        self.room_y = [-85.0, 85.0]
-        self.room_z = [0.0, 95.0]
+        # Room bounds (cm)
+        self.room_x = [-120.0, 120.0]
+        self.room_y = [-75.0, 75.0]
+        self.room_z = [0.0, 90.0]
 
-        # Table dimensions (left side matching user sketch)
+        # Table dimensions (left side)
         self.table_x = [-105.0, -45.0]
         self.table_y = [-28.0, 28.0]
         self.table_height = 30.0
 
-        # Light source (window/lamp)
-        self.light_pos = np.array([80.0, 75.0, 70.0], dtype=np.float32)
+        # Window light source
+        self.light_pos = np.array([75.0, 70.0, 65.0], dtype=np.float32)
 
         # Sensory systems
         self.vision = CompoundEyeVision(num_ommatidia_per_eye=16)
@@ -63,60 +62,58 @@ class HouseRoomEnvironment(BaseEnvironment):
 
         # 3D Fly State
         self.fly_pos = np.zeros(3, dtype=np.float32)
-        self.fly_heading: float = 0.0  # yaw angle in radians
-        self.fly_pitch: float = 0.0    # pitch angle in radians
-        self.fly_speed: float = 3.2
+        self.fly_heading: float = 0.0
+        self.fly_pitch: float = 0.0
+        self.fly_speed: float = 3.5
         self.fly_energy: float = 100.0
-        self.is_airborne: bool = True
 
-        # Threat / Swatter
+        # Threat (inactive in observation mode)
         self.threat_pos = np.array([0.0, 0.0, 70.0], dtype=np.float32)
         self.threat_active: bool = False
         self.threat_timer: int = 0
 
-        # Food items (fruit on table, sugar crumb on floor)
+        # Foods (Fruit on table, sugar on floor)
         self.foods: List[HouseFood] = []
 
         # Stats
         self.steps_survived: int = 0
         self.total_distance: float = 0.0
         self.food_eaten_count: int = 0
-        self.collision_count: int = 0
+
+        # Cached stimuli
+        self.last_visual: Optional[VisualStimulus] = None
+        self.last_olfactory: Optional[OlfactoryStimulus] = None
 
         self.reset()
 
     def reset(self) -> Dict[str, Any]:
-        """Reset fly, food, and room state."""
-        # Spawn fly near center of room facing the table/door
-        self.fly_pos = np.array([-10.0, -20.0, 42.0], dtype=np.float32)
+        """Reset fly to center of room with natural initial altitude."""
+        self.fly_pos = np.array([0.0, -10.0, 38.0], dtype=np.float32)
         self.fly_heading = float(np.random.uniform(-np.pi, np.pi))
         self.fly_pitch = 0.0
-        self.fly_speed = 3.2
+        self.fly_speed = 3.5
         self.fly_energy = 100.0
-        self.is_airborne = True
 
         self.steps_survived = 0
         self.total_distance = 0.0
         self.food_eaten_count = 0
-        self.collision_count = 0
         self.threat_active = False
 
-        # Spawn food: Item 1 on Table (fruit), Item 2 on Floor (crumb)
         self.foods = [
             HouseFood(
                 id=0,
-                pos=np.array([-70.0, 0.0, self.table_height + 2.0], dtype=np.float32),
+                pos=np.array([-75.0, 0.0, self.table_height + 2.0], dtype=np.float32),
                 name="Fruit Slice on Table",
             ),
             HouseFood(
                 id=1,
-                pos=np.array([45.0, -30.0, 2.0], dtype=np.float32),
+                pos=np.array([35.0, -25.0, 2.0], dtype=np.float32),
                 name="Sugar Crumb on Floor",
             ),
             HouseFood(
                 id=2,
-                pos=np.array([60.0, 50.0, 2.0], dtype=np.float32),
-                name="Syrup Drop near Door",
+                pos=np.array([55.0, 45.0, 2.0], dtype=np.float32),
+                name="Syrup near Door",
             ),
         ]
 
@@ -124,7 +121,7 @@ class HouseRoomEnvironment(BaseEnvironment):
         return self._get_observation()
 
     def step(self, action: Any) -> Tuple[Dict[str, Any], float, bool, Dict[str, Any]]:
-        """Advance simulation in 3D house room."""
+        """Advance simulation with smooth biological flight and boundary avoidance."""
         self.steps_survived += 1
 
         if isinstance(action, MotorAction):
@@ -134,28 +131,40 @@ class HouseRoomEnvironment(BaseEnvironment):
             fwd_vel = float(action[0])
             turn_vel = float(action[1])
         else:
-            fwd_vel = 3.2
+            fwd_vel = 3.5
             turn_vel = 0.0
 
-        self.fly_speed = fwd_vel
+        # 1. Aerodynamic Boundary Cushion (Smooth wall avoidance)
+        margin = 22.0
+        steer_bias = 0.0
 
-        # 1. Update Yaw Heading (Steering)
-        self.fly_heading = (self.fly_heading + turn_vel + np.pi) % (2 * np.pi) - np.pi
+        if self.fly_pos[0] < self.room_x[0] + margin:
+            steer_bias += 0.08  # turn right away from left wall
+        elif self.fly_pos[0] > self.room_x[1] - margin:
+            steer_bias -= 0.08  # turn left away from right wall
 
-        # 2. 3D Kinematics: forward thrust + vertical oscillation/altitude flight
-        # Altitude target: floats gently around 30 to 55 cm unless diving for food
-        target_z = 45.0 + float(np.sin(self.steps_survived * 0.08) * 12.0)
-        # If nearest food is lower, bias flight downwards
-        active_foods = [f for f in self.foods if not f.consumed]
-        if active_foods:
-            closest_f = min(active_foods, key=lambda f: float(np.linalg.norm(f.pos[:2] - self.fly_pos[:2])))
-            if np.linalg.norm(closest_f.pos[:2] - self.fly_pos[:2]) < 40.0:
-                target_z = closest_f.pos[2] + 4.0
+        if self.fly_pos[1] < self.room_y[0] + margin:
+            steer_bias += 0.08  # turn away from front wall
+        elif self.fly_pos[1] > self.room_y[1] - margin:
+            steer_bias -= 0.08  # turn away from back wall
+
+        # 2. Update Yaw Heading
+        total_turn = turn_vel + steer_bias
+        self.fly_heading = (self.fly_heading + total_turn + np.pi) % (2 * np.pi) - np.pi
+
+        # 3. 3D Flight Kinematics
+        # Natural vertical undulating flight between 28 and 55 cm
+        target_z = 38.0 + float(np.sin(self.steps_survived * 0.06) * 12.0)
+        # If hovering over table, maintain clearance above table
+        if (
+            self.table_x[0] - 10 <= self.fly_pos[0] <= self.table_x[1] + 10
+            and self.table_y[0] - 10 <= self.fly_pos[1] <= self.table_y[1] + 10
+        ):
+            target_z = max(target_z, self.table_height + 8.0)
 
         z_err = target_z - self.fly_pos[2]
-        vz = np.clip(z_err * 0.1, -1.8, 1.8)
+        vz = float(np.clip(z_err * 0.08, -1.5, 1.5))
 
-        # Forward velocity vector in 3D
         vx = np.cos(self.fly_heading) * fwd_vel
         vy = np.sin(self.fly_heading) * fwd_vel
 
@@ -164,124 +173,68 @@ class HouseRoomEnvironment(BaseEnvironment):
 
         step_dist = float(np.linalg.norm(step_delta))
         self.total_distance += step_dist
+        self.fly_speed = float(np.linalg.norm([vx, vy]))
+        self.fly_pitch = float(np.clip(-vz * 0.12, -0.35, 0.35))
 
-        # Pitch based on vertical movement
-        self.fly_pitch = float(np.clip(-vz * 0.15, -0.4, 0.4))
+        # Clamp inside room bounds gently
+        self.fly_pos[0] = np.clip(self.fly_pos[0], self.room_x[0] + 5.0, self.room_x[1] - 5.0)
+        self.fly_pos[1] = np.clip(self.fly_pos[1], self.room_y[0] + 5.0, self.room_y[1] - 5.0)
+        self.fly_pos[2] = np.clip(self.fly_pos[2], self.room_z[0] + 4.0, self.room_z[1] - 5.0)
 
-        # 3. Energy Expenditure
-        self.fly_energy -= (0.025 + fwd_vel * 0.01)
-
-        # 4. Room Wall Collisions & Soft Deflections
-        collision_detected = False
-        wall_margin = 4.0
-
-        # X walls (left/right)
-        if self.fly_pos[0] < self.room_x[0] + wall_margin:
-            self.fly_pos[0] = self.room_x[0] + wall_margin
-            self.fly_heading = np.pi - self.fly_heading
-            collision_detected = True
-        elif self.fly_pos[0] > self.room_x[1] - wall_margin:
-            self.fly_pos[0] = self.room_x[1] - wall_margin
-            self.fly_heading = np.pi - self.fly_heading
-            collision_detected = True
-
-        # Y walls (front/back)
-        if self.fly_pos[1] < self.room_y[0] + wall_margin:
-            self.fly_pos[1] = self.room_y[0] + wall_margin
-            self.fly_heading = -self.fly_heading
-            collision_detected = True
-        elif self.fly_pos[1] > self.room_y[1] - wall_margin:
-            self.fly_pos[1] = self.room_y[1] - wall_margin
-            self.fly_heading = -self.fly_heading
-            collision_detected = True
-
-        # Floor and Ceiling
-        if self.fly_pos[2] < self.room_z[0] + 1.0:
-            self.fly_pos[2] = self.room_z[0] + 1.0
-        elif self.fly_pos[2] > self.room_z[1] - 3.0:
-            self.fly_pos[2] = self.room_z[1] - 3.0
-
-        # Table Surface & Leg Collisions
-        if (
-            self.table_x[0] <= self.fly_pos[0] <= self.table_x[1]
-            and self.table_y[0] <= self.fly_pos[1] <= self.table_y[1]
-        ):
-            if self.fly_pos[2] < self.table_height + 1.0:
-                self.fly_pos[2] = self.table_height + 1.0
-                collision_detected = True
-
-        if collision_detected:
-            self.collision_count += 1
-
-        # 5. Food Consumption
-        reward = 0.1
+        # 4. Food Interaction (Nibbling / Visiting food)
         for f in self.foods:
             if not f.consumed:
                 d_3d = float(np.linalg.norm(self.fly_pos - f.pos))
-                if d_3d < 9.0:
+                if d_3d < 12.0:
                     f.consumed = True
-                    f.respawn_timer = 120
+                    f.respawn_timer = 160
                     self.food_eaten_count += 1
-                    self.fly_energy = min(100.0, self.fly_energy + f.energy_value)
-                    reward += 25.0
             else:
                 f.respawn_timer -= 1
                 if f.respawn_timer <= 0:
                     f.consumed = False
 
-        # 6. Looming Threat (Swatter / Cat Paw / Hazard)
-        if self.threat_active:
-            self.threat_timer -= 1
-            if self.threat_timer <= 0:
-                self.threat_active = False
-
-        # 7. Done Check
-        done = False
-        death_reason = None
-        if self.fly_energy <= 0.0:
-            done = True
-            death_reason = "energy_depleted"
-        elif self.steps_survived >= self.max_steps:
-            done = True
-            death_reason = "time_limit_reached"
-
-        obs = self._get_observation(collision_detected)
+        obs = self._get_observation()
 
         info = {
             "steps_survived": self.steps_survived,
             "total_distance": round(self.total_distance, 1),
             "food_eaten": self.food_eaten_count,
-            "collisions": self.collision_count,
-            "energy": round(self.fly_energy, 1),
-            "death_reason": death_reason,
+            "collisions": 0,
+            "energy": 100.0,
+            "death_reason": None,
         }
 
-        return obs, reward, done, info
+        return obs, 0.1, False, info
 
-    def _get_observation(self, collision_detected: bool = False) -> Dict[str, Any]:
-        """Compute biological visual, olfactory, and tactile stimuli in the 3D room."""
-        active_food_pos_2d = [f.pos[:2] for f in self.foods if not f.consumed]
+    def _get_observation(self) -> Dict[str, Any]:
+        """Compute biological compound eye vision, olfaction, and tactile signals."""
+        active_food_pos = [f.pos[:2] for f in self.foods if not f.consumed]
         threat_pos_2d = self.threat_pos[:2] if self.threat_active else None
 
         visual_stim = self.vision.perceive(
             fly_pos=self.fly_pos[:2],
             fly_heading=self.fly_heading,
-            food_positions=active_food_pos_2d,
+            food_positions=active_food_pos,
             threat_pos=threat_pos_2d,
             threat_radius=18.0,
+            light_pos=self.light_pos,
         )
 
         olfactory_stim = self.olfaction.perceive(
             fly_pos=self.fly_pos[:2],
             fly_heading=self.fly_heading,
-            food_positions=active_food_pos_2d,
+            food_positions=active_food_pos,
         )
 
         tactile_stim = self.mechanosensation.perceive(
-            wall_distance=20.0,
-            collision_detected=collision_detected,
-            predator_distance=999.0 if not self.threat_active else float(np.linalg.norm(self.fly_pos - self.threat_pos)),
+            wall_distance=25.0,
+            collision_detected=False,
+            predator_distance=999.0,
         )
+
+        self.last_visual = visual_stim
+        self.last_olfactory = olfactory_stim
 
         return {
             "visual": visual_stim,
@@ -290,11 +243,14 @@ class HouseRoomEnvironment(BaseEnvironment):
             "fly_pos": self.fly_pos.copy(),
             "fly_heading": self.fly_heading,
             "fly_pitch": self.fly_pitch,
-            "energy": self.fly_energy,
+            "energy": 100.0,
         }
 
     def get_state(self) -> Dict[str, Any]:
-        """Return serializable 3D world state for Three.js Room View."""
+        """Return full 3D state including Inside-Fly retinal pixel grids and olfaction levels."""
+        vis = self.last_visual
+        olf = self.last_olfactory
+
         return {
             "fly": {
                 "x": round(float(self.fly_pos[0]), 2),
@@ -302,7 +258,7 @@ class HouseRoomEnvironment(BaseEnvironment):
                 "z": round(float(self.fly_pos[2]), 2),
                 "heading": round(float(self.fly_heading), 3),
                 "pitch": round(float(self.fly_pitch), 3),
-                "energy": round(float(self.fly_energy), 1),
+                "energy": 100.0,
                 "speed": round(float(self.fly_speed), 2),
             },
             "room": {
@@ -327,16 +283,16 @@ class HouseRoomEnvironment(BaseEnvironment):
                 }
                 for f in self.foods
             ],
-            "threat": {
-                "active": self.threat_active,
-                "x": round(float(self.threat_pos[0]), 2),
-                "y": round(float(self.threat_pos[1]), 2),
-                "z": round(float(self.threat_pos[2]), 2),
+            "inside_fly": {
+                "left_eye_pixels": vis.left_eye_grid if vis else [0.1] * 64,
+                "right_eye_pixels": vis.right_eye_grid if vis else [0.1] * 64,
+                "smell_left": round(float(olf.left_concentration), 3) if olf else 0.0,
+                "smell_right": round(float(olf.right_concentration), 3) if olf else 0.0,
+                "odor_gradient": round(float(olf.gradient), 3) if olf else 0.0,
             },
             "step": self.steps_survived,
             "stats": {
                 "food_eaten": self.food_eaten_count,
-                "collisions": self.collision_count,
                 "distance": round(self.total_distance, 1),
             },
         }
