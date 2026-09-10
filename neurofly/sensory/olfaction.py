@@ -23,7 +23,7 @@ class AntennaeOlfaction:
     - Senses spatial gradient for tropotaxis / chemotaxis.
     """
 
-    def __init__(self, antenna_span: float = 4.0, odor_decay_sigma: float = 120.0):
+    def __init__(self, antenna_span: float = 4.0, odor_decay_sigma: float = 38.0):
         self.antenna_span = antenna_span
         self.sigma_sq = 2.0 * (odor_decay_sigma ** 2)
 

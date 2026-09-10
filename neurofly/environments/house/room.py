@@ -134,36 +134,69 @@ class HouseRoomEnvironment(BaseEnvironment):
             fwd_vel = 3.5
             turn_vel = 0.0
 
-        # 1. Aerodynamic Boundary Cushion (Smooth wall avoidance)
-        margin = 22.0
+        # 1. Aerodynamic Boundary Cushion (Smooth repulsive vector avoidance)
+        margin = 28.0
+        d_left = self.fly_pos[0] - self.room_x[0]
+        d_right = self.room_x[1] - self.fly_pos[0]
+        d_front = self.fly_pos[1] - self.room_y[0]
+        d_back = self.room_y[1] - self.fly_pos[1]
+
+        fx = 0.0
+        fy = 0.0
+        if d_left < margin:
+            fx += (margin - d_left) / margin
+        if d_right < margin:
+            fx -= (margin - d_right) / margin
+        if d_front < margin:
+            fy += (margin - d_front) / margin
+        if d_back < margin:
+            fy -= (margin - d_back) / margin
+
         steer_bias = 0.0
-
-        if self.fly_pos[0] < self.room_x[0] + margin:
-            steer_bias += 0.08  # turn right away from left wall
-        elif self.fly_pos[0] > self.room_x[1] - margin:
-            steer_bias -= 0.08  # turn left away from right wall
-
-        if self.fly_pos[1] < self.room_y[0] + margin:
-            steer_bias += 0.08  # turn away from front wall
-        elif self.fly_pos[1] > self.room_y[1] - margin:
-            steer_bias -= 0.08  # turn away from back wall
+        if fx != 0.0 or fy != 0.0:
+            # Escape heading pointing inward away from walls/corners (never cancels out)
+            theta_escape = float(np.arctan2(fy, fx))
+            diff = (theta_escape - self.fly_heading + np.pi) % (2 * np.pi) - np.pi
+            repulse_strength = float(np.clip(np.hypot(fx, fy) * 0.35, 0.10, 0.50))
+            steer_bias = float(np.clip(diff * repulse_strength, -0.28, 0.28))
+        else:
+            # Gentle spontaneous wandering / roaming across the entire room
+            wander = np.sin(self.steps_survived * 0.04) * 0.02
+            if self.steps_survived % 70 == 0:
+                wander += float(np.random.uniform(-0.12, 0.12))
+            steer_bias = wander
 
         # 2. Update Yaw Heading
         total_turn = turn_vel + steer_bias
         self.fly_heading = (self.fly_heading + total_turn + np.pi) % (2 * np.pi) - np.pi
 
         # 3. 3D Flight Kinematics
-        # Natural vertical undulating flight between 28 and 55 cm
-        target_z = 38.0 + float(np.sin(self.steps_survived * 0.06) * 12.0)
-        # If hovering over table, maintain clearance above table
+        # Find nearest active food
+        nearest_food = None
+        min_f_dist = 999.0
+        for f in self.foods:
+            if not f.consumed:
+                d_2d = float(np.linalg.norm(self.fly_pos[:2] - f.pos[:2]))
+                if d_2d < min_f_dist:
+                    min_f_dist = d_2d
+                    nearest_food = f
+
+        # If close to food (< 45 cm), descend smoothly toward it
+        if nearest_food is not None and min_f_dist < 45.0:
+            target_z = nearest_food.pos[2] + 4.0
+        else:
+            # Natural undulating cruising flight between 30 and 52 cm
+            target_z = 38.0 + float(np.sin(self.steps_survived * 0.05) * 12.0)
+
+        # Clearance over table if flying above table
         if (
-            self.table_x[0] - 10 <= self.fly_pos[0] <= self.table_x[1] + 10
-            and self.table_y[0] - 10 <= self.fly_pos[1] <= self.table_y[1] + 10
+            self.table_x[0] - 8.0 <= self.fly_pos[0] <= self.table_x[1] + 8.0
+            and self.table_y[0] - 8.0 <= self.fly_pos[1] <= self.table_y[1] + 8.0
         ):
             target_z = max(target_z, self.table_height + 8.0)
 
         z_err = target_z - self.fly_pos[2]
-        vz = float(np.clip(z_err * 0.08, -1.5, 1.5))
+        vz = float(np.clip(z_err * 0.08, -1.8, 1.8))
 
         vx = np.cos(self.fly_heading) * fwd_vel
         vy = np.sin(self.fly_heading) * fwd_vel
@@ -184,10 +217,11 @@ class HouseRoomEnvironment(BaseEnvironment):
         # 4. Food Interaction (Nibbling / Visiting food)
         for f in self.foods:
             if not f.consumed:
-                d_3d = float(np.linalg.norm(self.fly_pos - f.pos))
-                if d_3d < 12.0:
+                d_2d = float(np.linalg.norm(self.fly_pos[:2] - f.pos[:2]))
+                dz = abs(self.fly_pos[2] - f.pos[2])
+                if d_2d < 16.0 and dz < 14.0:
                     f.consumed = True
-                    f.respawn_timer = 160
+                    f.respawn_timer = 200
                     self.food_eaten_count += 1
             else:
                 f.respawn_timer -= 1

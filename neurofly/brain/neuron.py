@@ -108,6 +108,7 @@ class LIFNeurons:
             + (self.v[non_refractory] - self.v_rest) * self.decay_v
             + i_total[non_refractory] * (self.dt / self.c_m)
         )
+        self.v[non_refractory] = torch.clamp(self.v[non_refractory], min=-85.0, max=40.0)
 
         # 5. Check threshold and emit spikes
         spiked = (self.v >= self.v_thresh) & non_refractory
