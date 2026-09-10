@@ -83,6 +83,7 @@
         <div class="pill-segmented-control" id="camera-modes">
           <button class="seg-btn active" data-cam="room">ROOM VIEW</button>
           <button class="seg-btn" data-cam="chase">FLY CHASE</button>
+          <button class="seg-btn" data-cam="pov">FLY POV</button>
           <button class="seg-btn" data-cam="free">FREE ORBIT</button>
         </div>
       </div>
@@ -185,6 +186,7 @@
             <div class="radar-hud-line">KINEMATICS: <span id="overlay-kinematics">v: 0.00 mm/s | w: 0.000 rad/s</span></div>
             <div class="radar-hud-line">HEADING: <span id="overlay-heading">Yaw: 0.0° | Pitch: 0.0°</span></div>
             <div class="radar-hud-line">FURNITURE: <span>Table on Left | Door on Right | Window on Back</span></div>
+            <div class="radar-hud-line hint">INTERACTION: <span style="color:var(--accent-amber)">Click floor/table to drop sugar crumb</span></div>
           </div>
         </div>
       </div>
@@ -278,6 +280,19 @@
                   <span class="bio-card-label">Mean firing rate</span>
                   <span class="bio-card-val font-mono" id="inside-mean-rate">0.0 <small>Hz</small></span>
                 </div>
+              </div>
+
+              <!-- Inside Fly 05: Real-time Sparkline Waveforms -->
+              <div class="inside-waveform-box">
+                <div class="waveform-header">
+                  <span class="waveform-title">SMELL EXCITATION & ACTIVITY WAVEFORMS</span>
+                  <div class="waveform-legend">
+                    <span class="spk-leg emerald">L-Smell</span>
+                    <span class="spk-leg mint">R-Smell</span>
+                    <span class="spk-leg cyan">Spikes %</span>
+                  </div>
+                </div>
+                <canvas id="inside-sparkline-canvas" width="250" height="34"></canvas>
               </div>
             </div>
           </div>

@@ -44,14 +44,185 @@ let rateBuffer = [];
 // 1. Three.js 3D House Room View (Matching User's Sketch)
 // ==========================================================================
 let roomScene, roomCamera, roomRenderer, roomControls;
-let flyGroup, flyLeftWing, flyRightWing;
+let flyGroup, flyInnerGroup, flyLeftWing, flyRightWing;
 let roomTable, roomDoor, foodObjects = [];
+let clickableObjects = [];
 let flyTrajectoryLine, trajectoryGeometry;
+let prevFlyHeading = 0.0;
+let currentBankAngle = 0.0;
 const MAX_TRAIL_POINTS = 80;
 const trailPositions = new Float32Array(MAX_TRAIL_POINTS * 3);
 let trailCount = 0;
 
 const roomContainer = document.getElementById("room-three-container");
+
+// --------------------------------------------------------------------------
+// Procedural Biological & Interior Textures
+// --------------------------------------------------------------------------
+function createFloorTexture() {
+  const canvas = document.createElement("canvas");
+  canvas.width = 512;
+  canvas.height = 512;
+  const ctx = canvas.getContext("2d");
+
+  // Rich warm wood base
+  ctx.fillStyle = "#221914";
+  ctx.fillRect(0, 0, 512, 512);
+
+  ctx.strokeStyle = "#140f0c";
+  ctx.lineWidth = 3;
+  const plankH = 64;
+  const plankW = 128;
+
+  for (let y = 0; y < 512; y += plankH) {
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(512, y);
+    ctx.stroke();
+
+    const row = Math.floor(y / plankH);
+    const offsetX = (row % 2 === 0) ? 0 : plankW / 2;
+
+    for (let x = -plankW; x < 512 + plankW; x += plankW) {
+      ctx.beginPath();
+      ctx.moveTo(x + offsetX, y);
+      ctx.lineTo(x + offsetX, y + plankH);
+      ctx.stroke();
+
+      const grainTint = (Math.sin(x * 12.3 + y * 7.1) * 0.5 + 0.5) * 15;
+      ctx.fillStyle = `rgba(255, 220, 180, ${grainTint * 0.003})`;
+      ctx.fillRect(x + offsetX + 1, y + 1, plankW - 2, plankH - 2);
+    }
+  }
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.wrapS = THREE.RepeatWrapping;
+  texture.wrapT = THREE.RepeatWrapping;
+  texture.repeat.set(5, 3.5);
+  return texture;
+}
+
+function createRugTexture() {
+  const canvas = document.createElement("canvas");
+  canvas.width = 256;
+  canvas.height = 256;
+  const ctx = canvas.getContext("2d");
+
+  ctx.fillStyle = "#1e293b";
+  ctx.fillRect(0, 0, 256, 256);
+
+  ctx.strokeStyle = "#0ea5e9";
+  ctx.lineWidth = 8;
+  ctx.strokeRect(12, 12, 232, 232);
+
+  ctx.strokeStyle = "#f59e0b";
+  ctx.lineWidth = 3;
+  ctx.strokeRect(22, 22, 212, 212);
+
+  ctx.fillStyle = "#0f172a";
+  ctx.beginPath();
+  ctx.arc(128, 128, 48, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = "#38bdf8";
+  ctx.lineWidth = 3;
+  ctx.stroke();
+
+  const texture = new THREE.CanvasTexture(canvas);
+  return texture;
+}
+
+function createWingTexture() {
+  const canvas = document.createElement("canvas");
+  canvas.width = 256;
+  canvas.height = 128;
+  const ctx = canvas.getContext("2d");
+
+  ctx.fillStyle = "rgba(240, 249, 255, 0.22)";
+  ctx.fillRect(0, 0, 256, 128);
+
+  const grad = ctx.createLinearGradient(0, 0, 256, 128);
+  grad.addColorStop(0, "rgba(56, 189, 248, 0.12)");
+  grad.addColorStop(0.5, "rgba(168, 85, 247, 0.08)");
+  grad.addColorStop(1, "rgba(251, 191, 36, 0.1)");
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, 256, 128);
+
+  ctx.strokeStyle = "rgba(71, 85, 105, 0.85)";
+  ctx.lineWidth = 2.5;
+
+  ctx.beginPath();
+  ctx.moveTo(8, 20);
+  ctx.bezierCurveTo(80, 10, 200, 15, 250, 60);
+  ctx.stroke();
+
+  ctx.lineWidth = 1.8;
+  ctx.beginPath();
+  ctx.moveTo(10, 35);
+  ctx.bezierCurveTo(90, 32, 190, 40, 248, 68);
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.moveTo(10, 55);
+  ctx.bezierCurveTo(90, 60, 180, 75, 242, 85);
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.moveTo(10, 75);
+  ctx.bezierCurveTo(90, 85, 170, 105, 225, 115);
+  ctx.stroke();
+
+  ctx.lineWidth = 1.4;
+  ctx.beginPath();
+  ctx.moveTo(110, 34); ctx.lineTo(110, 63);
+  ctx.moveTo(175, 42); ctx.lineTo(175, 76);
+  ctx.stroke();
+
+  const texture = new THREE.CanvasTexture(canvas);
+  return texture;
+}
+
+function createAbdomenTexture() {
+  const canvas = document.createElement("canvas");
+  canvas.width = 128;
+  canvas.height = 256;
+  const ctx = canvas.getContext("2d");
+
+  ctx.fillStyle = "#b45309";
+  ctx.fillRect(0, 0, 128, 256);
+
+  ctx.fillStyle = "#1e293b";
+  for (let y = 30; y < 256; y += 36) {
+    ctx.fillRect(0, y, 128, 16);
+    ctx.fillRect(56, y - 10, 16, 26);
+  }
+
+  const texture = new THREE.CanvasTexture(canvas);
+  return texture;
+}
+
+function createEyeTexture() {
+  const canvas = document.createElement("canvas");
+  canvas.width = 128;
+  canvas.height = 128;
+  const ctx = canvas.getContext("2d");
+
+  ctx.fillStyle = "#881337";
+  ctx.fillRect(0, 0, 128, 128);
+
+  ctx.fillStyle = "#f59e0b";
+  const r = 3.5;
+  for (let y = 4; y < 128; y += 7) {
+    const shift = (Math.floor(y / 7) % 2 === 0) ? 0 : 4;
+    for (let x = 4; x < 128; x += 8) {
+      ctx.beginPath();
+      ctx.arc(x + shift, y, r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  const texture = new THREE.CanvasTexture(canvas);
+  return texture;
+}
 
 function initRoom3D() {
   roomScene = new THREE.Scene();
@@ -62,7 +233,6 @@ function initRoom3D() {
   const height = roomContainer.clientHeight || 550;
 
   roomCamera = new THREE.PerspectiveCamera(45, width / height, 1, 1500);
-  // Perfectly level horizontal camera view (0 roll tilt)
   roomCamera.position.set(0, 48, 160);
   roomCamera.up.set(0, 1, 0);
   roomCamera.lookAt(0, 36, 0);
@@ -81,46 +251,87 @@ function initRoom3D() {
   roomControls.enabled = false;
 
   // --- Lighting ---
-  const ambientLight = new THREE.AmbientLight(0xffeedd, 0.55);
+  const ambientLight = new THREE.AmbientLight(0xffedd5, 0.65);
   roomScene.add(ambientLight);
 
-  // Sunlight from window / warm ceiling lamp
-  const sunLight = new THREE.DirectionalLight(0xfff5e6, 0.85);
-  sunLight.position.set(60, 90, 40);
+  // Warm sunlight from window
+  const sunLight = new THREE.DirectionalLight(0xfff7ed, 0.95);
+  sunLight.position.set(30, 95, 20);
   sunLight.castShadow = true;
+  sunLight.shadow.mapSize.width = 1024;
+  sunLight.shadow.mapSize.height = 1024;
   roomScene.add(sunLight);
 
-  const fillLight = new THREE.PointLight(0x38bdf8, 0.35, 300);
-  fillLight.position.set(0, 60, 120);
+  // Ceiling warm ambient fill
+  const fillLight = new THREE.PointLight(0xfef08a, 0.45, 300);
+  fillLight.position.set(-30, 65, 0);
   roomScene.add(fillLight);
+
+  // Window blue sky tint
+  const windowLight = new THREE.PointLight(0x38bdf8, 0.4, 250);
+  windowLight.position.set(10, 50, -80);
+  roomScene.add(windowLight);
 
   buildRoomGeometry();
   build3DFly();
+
+  // Click to drop sugar interaction
+  const raycaster = new THREE.Raycaster();
+  const mouse = new THREE.Vector2();
+  roomRenderer.domElement.addEventListener("pointerdown", (event) => {
+    if (cameraMode === "free") return;
+    const rect = roomRenderer.domElement.getBoundingClientRect();
+    mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+    mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+    raycaster.setFromCamera(mouse, roomCamera);
+    const intersects = raycaster.intersectObjects(clickableObjects, true);
+    if (intersects.length > 0) {
+      const pt = intersects[0].point;
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ action: "stimulus", type: "drop_food", x: pt.x, y: pt.z }));
+      }
+    }
+  });
 
   window.addEventListener("resize", onRoomWindowResize);
 }
 
 function buildRoomGeometry() {
-  // 1. Floor: Lies flat horizontally in XZ plane (Y = 0)
+  clickableObjects = [];
+
+  // 1. Floor with warm parquet wood texture
   const floorGeo = new THREE.PlaneGeometry(280, 180);
+  const floorTex = createFloorTexture();
   const floorMat = new THREE.MeshStandardMaterial({
-    color: 0x182030,
-    roughness: 0.6,
-    metalness: 0.1,
+    map: floorTex,
+    roughness: 0.45,
+    metalness: 0.15,
   });
   const floor = new THREE.Mesh(floorGeo, floorMat);
   floor.rotation.x = -Math.PI / 2;
   floor.position.set(0, 0, 0);
   floor.receiveShadow = true;
   roomScene.add(floor);
+  clickableObjects.push(floor);
 
-  // Grid on floor
-  const grid = new THREE.GridHelper(260, 26, 0x334155, 0x1e293b);
-  grid.position.set(0, 0.1, 0);
-  roomScene.add(grid);
+  // Decorative woven area rug in center
+  const rugGeo = new THREE.PlaneGeometry(120, 80);
+  const rugTex = createRugTexture();
+  const rugMat = new THREE.MeshStandardMaterial({
+    map: rugTex,
+    roughness: 0.85,
+    metalness: 0.05,
+  });
+  const rug = new THREE.Mesh(rugGeo, rugMat);
+  rug.rotation.x = -Math.PI / 2;
+  rug.position.set(0, 0.15, 5);
+  rug.receiveShadow = true;
+  roomScene.add(rug);
+  clickableObjects.push(rug);
 
-  // 2. Walls (Back, Left, Right) - All perfectly upright
-  const wallMat = new THREE.MeshStandardMaterial({ color: 0x111624, roughness: 0.85 });
+  // 2. Walls (Back, Left, Right)
+  const wallMat = new THREE.MeshStandardMaterial({ color: 0x181f2e, roughness: 0.88 });
 
   // Back Wall (Z = -85)
   const backWallGeo = new THREE.PlaneGeometry(280, 95);
@@ -141,23 +352,59 @@ function buildRoomGeometry() {
   rightWall.position.set(135, 47.5, 0);
   roomScene.add(rightWall);
 
-  // Baseboard trim along bottom of walls
-  const baseboardMat = new THREE.MeshStandardMaterial({ color: 0x1e293b });
+  // Baseboard trim
+  const baseboardMat = new THREE.MeshStandardMaterial({ color: 0x2d3748, roughness: 0.6 });
   const trimBack = new THREE.Mesh(new THREE.BoxGeometry(280, 3, 2), baseboardMat);
   trimBack.position.set(0, 1.5, -84);
   roomScene.add(trimBack);
 
-  // 3. Table on the LEFT (Directly matching user's sketch)
+  // 3. Living Room Window on Back Wall
+  const windowGroup = new THREE.Group();
+  const skyGeo = new THREE.PlaneGeometry(68, 48);
+  const skyMat = new THREE.MeshBasicMaterial({ color: 0x60a5fa });
+  const skyMesh = new THREE.Mesh(skyGeo, skyMat);
+  skyMesh.position.set(10, 52, -84.8);
+  windowGroup.add(skyMesh);
+
+  const wFrameMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.3 });
+  const outerFrame = new THREE.Mesh(new THREE.BoxGeometry(72, 52, 2.5), wFrameMat);
+  outerFrame.position.set(10, 52, -84.2);
+  windowGroup.add(outerFrame);
+
+  const dividerH = new THREE.Mesh(new THREE.BoxGeometry(68, 2, 3), wFrameMat);
+  dividerH.position.set(10, 52, -84.0);
+  windowGroup.add(dividerH);
+  const dividerV = new THREE.Mesh(new THREE.BoxGeometry(2, 48, 3), wFrameMat);
+  dividerV.position.set(10, 52, -84.0);
+  windowGroup.add(dividerV);
+
+  // Sunlight shaft beam
+  const beamGeo = new THREE.ConeGeometry(45, 110, 16, 1, true);
+  const beamMat = new THREE.MeshBasicMaterial({
+    color: 0xfef08a,
+    transparent: true,
+    opacity: 0.08,
+    side: THREE.DoubleSide,
+    depthWrite: false,
+  });
+  const beamMesh = new THREE.Mesh(beamGeo, beamMat);
+  beamMesh.position.set(10, 35, -40);
+  beamMesh.rotation.x = Math.PI / 4;
+  windowGroup.add(beamMesh);
+  roomScene.add(windowGroup);
+
+  // 4. Table on the LEFT (Matching sketch)
   const tableGroup = new THREE.Group();
-  const topGeo = new THREE.BoxGeometry(65, 3, 55);
-  const woodMat = new THREE.MeshStandardMaterial({ color: 0x3d2817, roughness: 0.55 });
+  const topGeo = new THREE.BoxGeometry(65, 3.5, 55);
+  const woodMat = new THREE.MeshStandardMaterial({ color: 0x451a03, roughness: 0.45 });
   const tableTop = new THREE.Mesh(topGeo, woodMat);
   tableTop.position.set(-75, 30, 0);
   tableTop.castShadow = true;
   tableTop.receiveShadow = true;
   tableGroup.add(tableTop);
+  clickableObjects.push(tableTop);
 
-  // 4 Table Legs (Vertical cylinders from Y = 0 to Y = 28.5)
+  // 4 Table Legs
   const legGeo = new THREE.CylinderGeometry(1.4, 1.4, 28.5, 12);
   const legPositions = [
     [-102, 14.25, -22],
@@ -171,12 +418,37 @@ function buildRoomGeometry() {
     leg.castShadow = true;
     tableGroup.add(leg);
   }
+
+  // Ceramic Plate on Table
+  const plateGeo = new THREE.CylinderGeometry(9, 7, 0.8, 24);
+  const plateMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.2 });
+  const plate = new THREE.Mesh(plateGeo, plateMat);
+  plate.position.set(-75, 32.2, 0);
+  plate.receiveShadow = true;
+  tableGroup.add(plate);
+
+  // Red Apple on plate
+  const appleGeo = new THREE.SphereGeometry(3.2, 16, 16);
+  const appleMat = new THREE.MeshStandardMaterial({ color: 0xdc2626, roughness: 0.35 });
+  const apple = new THREE.Mesh(appleGeo, appleMat);
+  apple.position.set(-76, 35.0, -1.5);
+  apple.castShadow = true;
+  tableGroup.add(apple);
+
+  // Orange Fruit
+  const orangeGeo = new THREE.SphereGeometry(2.6, 16, 16);
+  const orangeMat = new THREE.MeshStandardMaterial({ color: 0xf97316, roughness: 0.4 });
+  const orange = new THREE.Mesh(orangeGeo, orangeMat);
+  orange.position.set(-72, 34.4, 2.0);
+  orange.castShadow = true;
+  tableGroup.add(orange);
+
   roomScene.add(tableGroup);
 
-  // 4. Door on the RIGHT / Back Wall (Matching user's sketch with round knob)
+  // 5. Door on the RIGHT
   const doorGroup = new THREE.Group();
   const doorGeo = new THREE.BoxGeometry(34, 76, 2);
-  const doorMat = new THREE.MeshStandardMaterial({ color: 0x1e283d, roughness: 0.7 });
+  const doorMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.65 });
   const doorMesh = new THREE.Mesh(doorGeo, doorMat);
   doorMesh.position.set(80, 38, -84);
   doorGroup.add(doorMesh);
@@ -188,22 +460,22 @@ function buildRoomGeometry() {
   frameMesh.position.set(80, 39.5, -84.5);
   doorGroup.add(frameMesh);
 
-  // Round Door Knob (Brass sphere matching user's sketch)
+  // Round Brass Door Knob
   const knobGeo = new THREE.SphereGeometry(2.2, 16, 16);
-  const knobMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, metalness: 0.85, roughness: 0.25 });
+  const knobMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, metalness: 0.85, roughness: 0.2 });
   const knobMesh = new THREE.Mesh(knobGeo, knobMat);
   knobMesh.position.set(68, 36, -82);
   doorGroup.add(knobMesh);
 
   roomScene.add(doorGroup);
 
-  // 5. Trajectory Ribbon
+  // 6. Trajectory Ribbon
   trajectoryGeometry = new THREE.BufferGeometry();
   trajectoryGeometry.setAttribute("position", new THREE.BufferAttribute(trailPositions, 3));
   const trailMat = new THREE.LineBasicMaterial({
     color: 0x00f0ff,
     transparent: true,
-    opacity: 0.65,
+    opacity: 0.75,
     linewidth: 2,
   });
   flyTrajectoryLine = new THREE.Line(trajectoryGeometry, trailMat);
@@ -213,43 +485,56 @@ function buildRoomGeometry() {
 function build3DFly() {
   flyGroup = new THREE.Group();
 
+  // Inner group for smooth flight banking and pitch
+  flyInnerGroup = new THREE.Group();
+  flyGroup.add(flyInnerGroup);
+
+  const wingTex = createWingTexture();
+  const abdomenTex = createAbdomenTexture();
+  const eyeTex = createEyeTexture();
+
   // Chitin material
   const bodyMat = new THREE.MeshStandardMaterial({
-    color: 0x1f2937,
+    color: 0x27272a,
     roughness: 0.35,
-    metalness: 0.4,
+    metalness: 0.45,
   });
 
   // 1. Thorax (Center)
-  const thoraxGeo = new THREE.SphereGeometry(3.5, 16, 16);
+  const thoraxGeo = new THREE.SphereGeometry(3.5, 20, 20);
   const thorax = new THREE.Mesh(thoraxGeo, bodyMat);
-  thorax.scale.set(1.1, 0.9, 1.3);
-  thorax.position.set(0, 0, 0);
+  thorax.scale.set(1.1, 0.95, 1.35);
   thorax.castShadow = true;
-  flyGroup.add(thorax);
+  flyInnerGroup.add(thorax);
 
-  // Abdomen (Rear: -Z)
-  const abdomenGeo = new THREE.SphereGeometry(3.6, 16, 16);
-  const abdomen = new THREE.Mesh(abdomenGeo, bodyMat);
-  abdomen.scale.set(1.0, 0.85, 1.8);
+  // 2. Abdomen (Rear: -Z) with striped Drosophila tergites
+  const abdomenGeo = new THREE.SphereGeometry(3.6, 20, 20);
+  const abdomenMat = new THREE.MeshStandardMaterial({
+    map: abdomenTex,
+    roughness: 0.4,
+    metalness: 0.25,
+  });
+  const abdomen = new THREE.Mesh(abdomenGeo, abdomenMat);
+  abdomen.scale.set(1.0, 0.85, 1.85);
   abdomen.position.set(0, -0.4, -4.5);
+  abdomen.rotation.x = -0.15;
   abdomen.castShadow = true;
-  flyGroup.add(abdomen);
+  flyInnerGroup.add(abdomen);
 
-  // 2. Head (Front: +Z)
-  const headGeo = new THREE.SphereGeometry(2.4, 16, 16);
+  // 3. Head (Front: +Z)
+  const headGeo = new THREE.SphereGeometry(2.4, 20, 20);
   const head = new THREE.Mesh(headGeo, bodyMat);
   head.position.set(0, 0.3, 3.4);
   head.castShadow = true;
-  flyGroup.add(head);
+  flyInnerGroup.add(head);
 
-  // 3. Two Big Compound Eyes (Prominent red/amber facets facing forward/angled)
-  const eyeGeo = new THREE.SphereGeometry(1.8, 20, 20);
+  // 4. Ruby Compound Eyes with hexagonal ommatidia texture & glow
+  const eyeGeo = new THREE.SphereGeometry(1.85, 24, 24);
   const eyeMat = new THREE.MeshStandardMaterial({
-    color: 0xd97706,
+    map: eyeTex,
     roughness: 0.15,
-    metalness: 0.6,
-    emissive: 0xb45309,
+    metalness: 0.5,
+    emissive: 0x991b1b,
     emissiveIntensity: 0.3,
   });
 
@@ -257,47 +542,47 @@ function build3DFly() {
   leftEye.scale.set(0.9, 1.3, 1.3);
   leftEye.position.set(-1.6, 0.7, 4.0);
   leftEye.rotation.set(0.1, -0.3, 0.1);
-  flyGroup.add(leftEye);
+  flyInnerGroup.add(leftEye);
 
   const rightEye = new THREE.Mesh(eyeGeo, eyeMat);
   rightEye.scale.set(0.9, 1.3, 1.3);
   rightEye.position.set(1.6, 0.7, 4.0);
   rightEye.rotation.set(0.1, 0.3, -0.1);
-  flyGroup.add(rightEye);
+  flyInnerGroup.add(rightEye);
 
   // Antennae
   const antMat = new THREE.MeshBasicMaterial({ color: 0x94a3b8 });
   for (let side of [-1, 1]) {
-    const antGeo = new THREE.CylinderGeometry(0.1, 0.1, 2.5, 4);
+    const antGeo = new THREE.CylinderGeometry(0.1, 0.1, 2.5, 6);
     const ant = new THREE.Mesh(antGeo, antMat);
     ant.position.set(side * 0.6, 1.2, 5.0);
     ant.rotation.set(0.6, side * 0.3, 0);
-    flyGroup.add(ant);
+    flyInnerGroup.add(ant);
   }
 
-  // 4. Fluttering Translucent Wings (Attached on dorsal thorax +Y, extending horizontally)
-  const wingGeo = new THREE.PlaneGeometry(12.0, 5.0);
+  // 5. Delicate Veined Translucent Wings
+  const wingGeo = new THREE.PlaneGeometry(13.0, 6.0);
   const wingMat = new THREE.MeshPhysicalMaterial({
-    color: 0xffffff,
+    map: wingTex,
     transparent: true,
-    opacity: 0.6,
+    opacity: 0.7,
     roughness: 0.1,
-    transmission: 0.8,
-    ior: 1.4,
+    transmission: 0.85,
+    ior: 1.45,
     side: THREE.DoubleSide,
   });
 
   flyLeftWing = new THREE.Mesh(wingGeo, wingMat);
-  flyLeftWing.position.set(-7.0, 1.6, -0.5);
-  flyLeftWing.rotation.set(-Math.PI / 2, 0, 0.2);
-  flyGroup.add(flyLeftWing);
+  flyLeftWing.position.set(-7.2, 1.7, -0.5);
+  flyLeftWing.rotation.set(-Math.PI / 2, 0, 0.15);
+  flyInnerGroup.add(flyLeftWing);
 
   flyRightWing = new THREE.Mesh(wingGeo, wingMat);
-  flyRightWing.position.set(7.0, 1.6, -0.5);
-  flyRightWing.rotation.set(-Math.PI / 2, 0, -0.2);
-  flyGroup.add(flyRightWing);
+  flyRightWing.position.set(7.2, 1.7, -0.5);
+  flyRightWing.rotation.set(-Math.PI / 2, 0, -0.15);
+  flyInnerGroup.add(flyRightWing);
 
-  // 5. Six jointed legs angled downwards (-Y)
+  // 6. Jointed Legs
   const legMat = new THREE.MeshBasicMaterial({ color: 0x111827 });
   for (let side of [-1, 1]) {
     for (let i = 0; i < 3; i++) {
@@ -305,11 +590,10 @@ function build3DFly() {
       const leg = new THREE.Mesh(legGeo, legMat);
       leg.position.set(side * 2.8, -1.8, (i - 1) * 2.5);
       leg.rotation.set(0, 0, side * 0.7);
-      flyGroup.add(leg);
+      flyInnerGroup.add(leg);
     }
   }
 
-  // Position fly initially
   flyGroup.position.set(-10, 42, -20);
   roomScene.add(flyGroup);
 }
@@ -324,12 +608,10 @@ function onRoomWindowResize() {
 }
 
 function updateFoodObjects(foods) {
-  // Synchronize 3D food props in room
   if (foodObjects.length === 0) {
     for (let f of foods) {
       const fGroup = new THREE.Group();
 
-      // Plate / Food Core (Red apple / fruit on table)
       const coreGeo = new THREE.SphereGeometry(3.5, 16, 16);
       const coreMat = new THREE.MeshStandardMaterial({
         color: f.name.includes("Fruit") ? 0xef4444 : 0x10b981,
@@ -340,7 +622,6 @@ function updateFoodObjects(foods) {
       const core = new THREE.Mesh(coreGeo, coreMat);
       fGroup.add(core);
 
-      // Scent Halo
       const haloGeo = new THREE.RingGeometry(4, 9, 16);
       const haloMat = new THREE.MeshBasicMaterial({
         color: 0x10b981,
@@ -352,7 +633,6 @@ function updateFoodObjects(foods) {
       halo.position.z = 0.5;
       fGroup.add(halo);
 
-      // Place food in Three.js: X=f.x, Y=f.z (height above floor), Z=f.y (depth)
       fGroup.position.set(f.x, f.z, f.y);
       roomScene.add(fGroup);
       foodObjects.push({ group: fGroup, id: f.id });
@@ -379,8 +659,17 @@ function updateRoomFly(flyState, trajectory) {
   const targetZ = flyState.y + Math.sin(flyState.heading) * 10;
   flyGroup.lookAt(targetX, targetY, targetZ);
 
-  // Wing stroke flapping animation
-  const flutter = Math.sin(Date.now() * 0.06) * 0.35;
+  // Realistic aerodynamic banking roll when turning
+  let turnDelta = (flyState.heading - prevFlyHeading + Math.PI) % (2 * Math.PI) - Math.PI;
+  prevFlyHeading = flyState.heading;
+  const targetBank = -turnDelta * 2.4;
+  currentBankAngle = THREE.MathUtils.lerp(currentBankAngle, targetBank, 0.2);
+  if (flyInnerGroup) {
+    flyInnerGroup.rotation.z = currentBankAngle;
+  }
+
+  // Fast biological wing flapping oscillation
+  const flutter = Math.sin(Date.now() * 0.08) * 0.4;
   if (flyLeftWing) flyLeftWing.rotation.y = flutter;
   if (flyRightWing) flyRightWing.rotation.y = -flutter;
 
@@ -397,7 +686,21 @@ function updateRoomFly(flyState, trajectory) {
   }
 
   // Camera tracking modes
-  if (cameraMode === "chase") {
+  if (cameraMode === "pov") {
+    // First-person fly cockpit view between antennae
+    const headPos = new THREE.Vector3(
+      flyState.x + Math.cos(flyState.heading) * 4.2,
+      flyState.z + 1.2,
+      flyState.y + Math.sin(flyState.heading) * 4.2
+    );
+    const forward = new THREE.Vector3(
+      Math.cos(flyState.heading) * 30,
+      (flyState.pitch || 0) * 14,
+      Math.sin(flyState.heading) * 30
+    );
+    roomCamera.position.copy(headPos);
+    roomCamera.lookAt(headPos.clone().add(forward));
+  } else if (cameraMode === "chase") {
     const offset = new THREE.Vector3(
       -Math.cos(flyState.heading) * 45,
       16,
@@ -406,7 +709,6 @@ function updateRoomFly(flyState, trajectory) {
     roomCamera.position.copy(flyGroup.position).add(offset);
     roomCamera.lookAt(flyGroup.position.x, flyGroup.position.y + 4, flyGroup.position.z);
   } else if (cameraMode === "room") {
-    // Level eye-level room view (0 roll tilt)
     roomCamera.position.set(0, 48, 160);
     roomCamera.up.set(0, 1, 0);
     roomCamera.lookAt(0, 36, 0);
@@ -458,6 +760,71 @@ function renderEyeCanvas(canvas, pixels) {
       ctx.fillRect(c * cellSize + 0.5, r * cellSize + 0.5, cellSize - 1, cellSize - 1);
     }
   }
+}
+
+// --------------------------------------------------------------------------
+// Inside Fly 05: Real-time Rolling Sparkline Waveforms
+// --------------------------------------------------------------------------
+const sparklineHistory = [];
+const MAX_SPARK_POINTS = 60;
+
+function renderInsideSparkline(smellL, smellR, fractionFiring) {
+  const canvas = document.getElementById("inside-sparkline-canvas");
+  if (!canvas) return;
+  const ctx = canvas.getContext("2d");
+  const w = canvas.width;
+  const h = canvas.height;
+
+  sparklineHistory.push({ l: smellL, r: smellR, ff: fractionFiring });
+  if (sparklineHistory.length > MAX_SPARK_POINTS) sparklineHistory.shift();
+
+  ctx.fillStyle = "#04060a";
+  ctx.fillRect(0, 0, w, h);
+
+  // Center subtle baseline
+  ctx.strokeStyle = "rgba(255, 255, 255, 0.06)";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(0, h / 2); ctx.lineTo(w, h / 2);
+  ctx.stroke();
+
+  if (sparklineHistory.length < 2) return;
+  const dx = w / (MAX_SPARK_POINTS - 1);
+
+  // 1. Left Smell (Emerald solid line)
+  ctx.strokeStyle = "#10b981";
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  for (let i = 0; i < sparklineHistory.length; i++) {
+    const x = i * dx;
+    const y = h - (sparklineHistory[i].l * (h - 4)) - 2;
+    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+
+  // 2. Right Smell (Mint dashed line)
+  ctx.strokeStyle = "#34d399";
+  ctx.lineWidth = 1.2;
+  ctx.setLineDash([3, 2]);
+  ctx.beginPath();
+  for (let i = 0; i < sparklineHistory.length; i++) {
+    const x = i * dx;
+    const y = h - (sparklineHistory[i].r * (h - 4)) - 2;
+    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // 3. Spiking Fraction % (Cyan line)
+  ctx.strokeStyle = "#00f0ff";
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  for (let i = 0; i < sparklineHistory.length; i++) {
+    const x = i * dx;
+    const y = h - (Math.min(10.0, sparklineHistory[i].ff) / 10.0 * (h - 4)) - 2;
+    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  }
+  ctx.stroke();
 }
 
 function animateRoomLoop() {
@@ -811,6 +1178,10 @@ function connectWebSocket() {
         if (smellBarRight) smellBarRight.style.width = `${smellR}%`;
         if (smellValLeft) smellValLeft.textContent = (inside.smell_left || 0).toFixed(2);
         if (smellValRight) smellValRight.textContent = (inside.smell_right || 0).toFixed(2);
+
+        // Real-time Inside Fly 05 Sparkline Waveform
+        const fracFiring = (data.brain && data.brain.fraction_firing_pct != null) ? data.brain.fraction_firing_pct : 0.0;
+        renderInsideSparkline(inside.smell_left || 0, inside.smell_right || 0, fracFiring);
       }
 
       // 4. Inside Fly 05: Brain Electrophysiology Metrics
