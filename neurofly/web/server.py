@@ -70,7 +70,7 @@ class SimulationManager:
         self.active_controller_key = "malecns"
         self.is_running = True
         self.speed_multiplier = 1  # 1x, 5x, 10x, 20x
-        self.step_delay = 0.038  # ~26 FPS base
+        self.step_delay = 0.022  # ~45 FPS dense broadcast stream
 
         # Trajectory buffer (3D positions)
         self.trajectory = deque(maxlen=80)

@@ -62,10 +62,12 @@ class HouseRoomEnvironment(BaseEnvironment):
 
         # 3D Fly State
         self.fly_pos = np.zeros(3, dtype=np.float32)
+        self.fly_vel = np.zeros(3, dtype=np.float32)
         self.fly_heading: float = 0.0
         self.fly_pitch: float = 0.0
         self.fly_speed: float = 3.5
         self.fly_energy: float = 100.0
+        self.wander_bias: float = 0.0
 
         # Threat (inactive in observation mode)
         self.threat_pos = np.array([0.0, 0.0, 70.0], dtype=np.float32)
@@ -89,10 +91,12 @@ class HouseRoomEnvironment(BaseEnvironment):
     def reset(self) -> Dict[str, Any]:
         """Reset fly to center of room with natural initial altitude."""
         self.fly_pos = np.array([0.0, -10.0, 38.0], dtype=np.float32)
+        self.fly_vel = np.zeros(3, dtype=np.float32)
         self.fly_heading = float(np.random.uniform(-np.pi, np.pi))
         self.fly_pitch = 0.0
         self.fly_speed = 3.5
         self.fly_energy = 100.0
+        self.wander_bias = 0.0
 
         self.steps_survived = 0
         self.total_distance = 0.0
@@ -159,12 +163,11 @@ class HouseRoomEnvironment(BaseEnvironment):
             diff = (theta_escape - self.fly_heading + np.pi) % (2 * np.pi) - np.pi
             repulse_strength = float(np.clip(np.hypot(fx, fy) * 0.35, 0.10, 0.50))
             steer_bias = float(np.clip(diff * repulse_strength, -0.28, 0.28))
+            self.wander_bias *= 0.8
         else:
-            # Gentle spontaneous wandering / roaming across the entire room
-            wander = np.sin(self.steps_survived * 0.04) * 0.02
-            if self.steps_survived % 70 == 0:
-                wander += float(np.random.uniform(-0.12, 0.12))
-            steer_bias = wander
+            # Continuous biological wandering (smooth Ornstein-Uhlenbeck random walk)
+            self.wander_bias = 0.94 * self.wander_bias + float(np.random.normal(0.0, 0.012))
+            steer_bias = float(np.clip(self.wander_bias + np.sin(self.steps_survived * 0.035) * 0.015, -0.09, 0.09))
 
         # 2. Update Yaw Heading
         total_turn = turn_vel + steer_bias
@@ -198,11 +201,12 @@ class HouseRoomEnvironment(BaseEnvironment):
         z_err = target_z - self.fly_pos[2]
         vz = float(np.clip(z_err * 0.08, -1.8, 1.8))
 
-        vx = np.cos(self.fly_heading) * fwd_vel
-        vy = np.sin(self.fly_heading) * fwd_vel
+        vx = float(np.cos(self.fly_heading) * fwd_vel)
+        vy = float(np.sin(self.fly_heading) * fwd_vel)
 
         step_delta = np.array([vx, vy, vz], dtype=np.float32)
         self.fly_pos += step_delta
+        self.fly_vel = step_delta.copy()
 
         step_dist = float(np.linalg.norm(step_delta))
         self.total_distance += step_dist
@@ -290,6 +294,9 @@ class HouseRoomEnvironment(BaseEnvironment):
                 "x": round(float(self.fly_pos[0]), 2),
                 "y": round(float(self.fly_pos[1]), 2),
                 "z": round(float(self.fly_pos[2]), 2),
+                "vx": round(float(self.fly_vel[0]), 3),
+                "vy": round(float(self.fly_vel[1]), 3),
+                "vz": round(float(self.fly_vel[2]), 3),
                 "heading": round(float(self.fly_heading), 3),
                 "pitch": round(float(self.fly_pitch), 3),
                 "energy": 100.0,

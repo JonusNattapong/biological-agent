@@ -55,9 +55,13 @@ let flyTrajectoryLine, trajectoryGeometry;
 let flyFloorShadow = null, flyShadowMat = null;
 let ripples = [];
 let targetFlyPos = new THREE.Vector3(-10, 42, -20);
-let targetHeading = 0.0, targetPitch = 0.0;
+let flyVelocity = new THREE.Vector3(0, 0, 0);
+let targetHeading = 0.0, smoothHeading = 0.0;
+let targetPitch = 0.0, smoothPitch = 0.0;
 let prevFlyHeading = 0.0;
 let currentBankAngle = 0.0;
+let lastServerTickTime = performance.now();
+let lastLoopTime = performance.now();
 let fpsFrameCount = 0, lastFpsTime = performance.now();
 const MAX_TRAIL_POINTS = 80;
 const trailPositions = new Float32Array(MAX_TRAIL_POINTS * 3);
@@ -1216,10 +1220,19 @@ function updateFoodObjects(foods) {
 function updateRoomFly(flyState, trajectory) {
   if (!flyGroup) return;
 
-  // Update target coordinates for smooth 60 FPS interpolation
+  // Update target coordinates (Three.js coordinates: X=flyState.x, Y=flyState.z, Z=flyState.y)
   targetFlyPos.set(flyState.x, flyState.z, flyState.y);
   targetHeading = flyState.heading;
   targetPitch = flyState.pitch || 0;
+
+  if (flyState.vx !== undefined && flyState.vy !== undefined && flyState.vz !== undefined) {
+    flyVelocity.set(flyState.vx, flyState.vz, flyState.vy);
+  } else {
+    const fwd = flyState.speed || 3.5;
+    const h = flyState.heading || 0;
+    flyVelocity.set(Math.cos(h) * fwd, 0, Math.sin(h) * fwd);
+  }
+  lastServerTickTime = performance.now();
 
   // Update 3D Trajectory Ribbon (X, Y=z, Z=y)
   if (trajectory && trajectory.length > 1) {
@@ -1231,35 +1244,6 @@ function updateRoomFly(flyState, trajectory) {
     }
     trajectoryGeometry.setDrawRange(0, pts.length);
     trajectoryGeometry.attributes.position.needsUpdate = true;
-  }
-
-  // Camera tracking modes
-  if (cameraMode === "pov") {
-    // First-person fly cockpit view between antennae
-    const headPos = new THREE.Vector3(
-      flyState.x + Math.cos(flyState.heading) * 4.2,
-      flyState.z + 1.2,
-      flyState.y + Math.sin(flyState.heading) * 4.2
-    );
-    const forward = new THREE.Vector3(
-      Math.cos(flyState.heading) * 30,
-      (flyState.pitch || 0) * 14,
-      Math.sin(flyState.heading) * 30
-    );
-    roomCamera.position.copy(headPos);
-    roomCamera.lookAt(headPos.clone().add(forward));
-  } else if (cameraMode === "chase") {
-    const offset = new THREE.Vector3(
-      -Math.cos(flyState.heading) * 45,
-      16,
-      -Math.sin(flyState.heading) * 45
-    );
-    roomCamera.position.copy(flyGroup.position).add(offset);
-    roomCamera.lookAt(flyGroup.position.x, flyGroup.position.y + 4, flyGroup.position.z);
-  } else if (cameraMode === "room") {
-    roomCamera.position.set(0, 48, 160);
-    roomCamera.up.set(0, 1, 0);
-    roomCamera.lookAt(0, 36, 0);
   }
 
   // Telemetry HUD readouts
@@ -1401,9 +1385,12 @@ function renderInsideSparkline(smellL, smellR, fractionFiring) {
 function animateRoomLoop() {
   requestAnimationFrame(animateRoomLoop);
 
+  const now = performance.now();
+  const dt = Math.min(0.05, Math.max(0.001, (now - lastLoopTime) * 0.001));
+  lastLoopTime = now;
+
   // Measure real-time rendering FPS
   fpsFrameCount++;
-  const now = performance.now();
   if (now - lastFpsTime >= 500) {
     const currentFps = Math.round((fpsFrameCount * 1000) / (now - lastFpsTime));
     if (hudFps) hudFps.textContent = currentFps;
@@ -1411,19 +1398,42 @@ function animateRoomLoop() {
     lastFpsTime = now;
   }
 
-  // Smooth biological flight interpolation (zero-garbage lerp)
+  // Smooth biological flight interpolation & kinematics
   if (flyGroup) {
-    flyGroup.position.lerp(targetFlyPos, 0.35);
+    // 1. Continuous velocity integration + frame-rate independent exponential smoothing
+    // Extrapolate predicted target slightly along velocity vector between ticks to avoid deceleration stutter
+    const timeSinceTick = (now - lastServerTickTime) * 0.001;
+    const blendFactor = 1.0 - Math.exp(-14.0 * dt);
 
-    const targetX = flyGroup.position.x + Math.cos(targetHeading) * 10;
-    const targetY = flyGroup.position.y + targetPitch * 8;
-    const targetZ = flyGroup.position.z + Math.sin(targetHeading) * 10;
+    const extraTime = Math.min(0.045, timeSinceTick);
+    const predictedX = targetFlyPos.x + flyVelocity.x * extraTime * 0.75;
+    const predictedY = targetFlyPos.y + flyVelocity.y * extraTime * 0.75;
+    const predictedZ = targetFlyPos.z + flyVelocity.z * extraTime * 0.75;
+
+    flyGroup.position.x += (predictedX - flyGroup.position.x) * blendFactor;
+    flyGroup.position.y += (predictedY - flyGroup.position.y) * blendFactor;
+    flyGroup.position.z += (predictedZ - flyGroup.position.z) * blendFactor;
+
+    // 2. Shortest-arc smooth angular interpolation for yaw & pitch
+    let dHeading = ((targetHeading - smoothHeading + Math.PI) % (2 * Math.PI)) - Math.PI;
+    const headingBlend = 1.0 - Math.exp(-12.0 * dt);
+    smoothHeading += dHeading * headingBlend;
+
+    let dPitch = targetPitch - smoothPitch;
+    const pitchBlend = 1.0 - Math.exp(-12.0 * dt);
+    smoothPitch += dPitch * pitchBlend;
+
+    // Orient fly smoothly forward along its flight vector
+    const lookDist = 12.0;
+    const targetX = flyGroup.position.x + Math.cos(smoothHeading) * lookDist;
+    const targetY = flyGroup.position.y + smoothPitch * 8.0;
+    const targetZ = flyGroup.position.z + Math.sin(smoothHeading) * lookDist;
     flyGroup.lookAt(targetX, targetY, targetZ);
 
-    let turnDelta = (targetHeading - prevFlyHeading + Math.PI) % (2 * Math.PI) - Math.PI;
-    prevFlyHeading = targetHeading;
-    const targetBank = -turnDelta * 2.4;
-    currentBankAngle = THREE.MathUtils.lerp(currentBankAngle, targetBank, 0.2);
+    // Dynamic bank roll based on angular turning rate
+    const turnRate = dHeading * 20.0;
+    const targetBank = -THREE.MathUtils.clamp(turnRate * 1.6, -0.65, 0.65);
+    currentBankAngle = THREE.MathUtils.lerp(currentBankAngle, targetBank, 1.0 - Math.exp(-10.0 * dt));
     if (flyInnerGroup) {
       flyInnerGroup.rotation.z = currentBankAngle;
     }
@@ -1450,6 +1460,34 @@ function animateRoomLoop() {
       flyFloorShadow.scale.set(shadowScale, shadowScale, 1.0);
       flyFloorShadow.position.set(flyGroup.position.x, 0.16, flyGroup.position.z);
       flyShadowMat.opacity = Math.max(0.12, 0.75 - altitude * 0.007);
+    }
+
+    // 3. Camera tracking modes running at native 60+ FPS
+    if (cameraMode === "chase") {
+      const chaseDistance = 46.0;
+      const chaseHeight = 16.0;
+      const desiredCamX = flyGroup.position.x - Math.cos(smoothHeading) * chaseDistance;
+      const desiredCamY = flyGroup.position.y + chaseHeight;
+      const desiredCamZ = flyGroup.position.z - Math.sin(smoothHeading) * chaseDistance;
+
+      const camBlend = 1.0 - Math.exp(-9.0 * dt);
+      roomCamera.position.x += (desiredCamX - roomCamera.position.x) * camBlend;
+      roomCamera.position.y += (desiredCamY - roomCamera.position.y) * camBlend;
+      roomCamera.position.z += (desiredCamZ - roomCamera.position.z) * camBlend;
+      roomCamera.lookAt(flyGroup.position.x, flyGroup.position.y + 3.8, flyGroup.position.z);
+    } else if (cameraMode === "pov") {
+      const headPos = new THREE.Vector3(
+        flyGroup.position.x + Math.cos(smoothHeading) * 4.2,
+        flyGroup.position.y + 1.2,
+        flyGroup.position.z + Math.sin(smoothHeading) * 4.2
+      );
+      const forward = new THREE.Vector3(
+        Math.cos(smoothHeading) * 35.0,
+        smoothPitch * 14.0,
+        Math.sin(smoothHeading) * 35.0
+      );
+      roomCamera.position.copy(headPos);
+      roomCamera.lookAt(headPos.clone().add(forward));
     }
   }
 
@@ -2015,6 +2053,14 @@ document.querySelectorAll("#camera-modes .seg-btn").forEach((btn) => {
     cameraMode = btn.getAttribute("data-cam");
     if (roomControls) {
       roomControls.enabled = (cameraMode === "free");
+      if (cameraMode === "room") {
+        roomControls.target.set(0, 36, 0);
+      }
+    }
+    if (cameraMode === "room") {
+      roomCamera.position.set(0, 48, 160);
+      roomCamera.up.set(0, 1, 0);
+      roomCamera.lookAt(0, 36, 0);
     }
   });
 });
