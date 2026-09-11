@@ -58,6 +58,55 @@
       </div>
     </header>
 
+    <!-- Top View Navigation Bar (แยกหน้าจอ 5 มุมมองหลัก ชัดเจน เต็มจอ) -->
+    <nav class="view-navigation-bar">
+      <div class="view-tabs-cluster" id="main-view-tabs">
+        <button class="view-nav-btn active" data-view="flight" title="Press 1 for 3D Flight Arena">
+          <span class="tab-num">1</span>
+          <span class="tab-icon">🪰</span>
+          <div class="tab-text">
+            <span class="tab-main">3D FLIGHT ARENA</span>
+            <span class="tab-sub">Living Room & Flight View</span>
+          </div>
+        </button>
+        <button class="view-nav-btn" data-view="connectome" title="Press 2 for 3D MaleCNS Connectome">
+          <span class="tab-num">2</span>
+          <span class="tab-icon">🧠</span>
+          <div class="tab-text">
+            <span class="tab-main">MaleCNS CONNECTOME</span>
+            <span class="tab-sub">3D Brain Hologram & Neuropils</span>
+          </div>
+        </button>
+        <button class="view-nav-btn" data-view="inside-fly" title="Press 3 for Inside Fly 05 Sensory Cockpit">
+          <span class="tab-num">3</span>
+          <span class="tab-icon">🔬</span>
+          <div class="tab-text">
+            <span class="tab-main">INSIDE FLY 05</span>
+            <span class="tab-sub">Compound Eyes & Olfaction</span>
+          </div>
+        </button>
+        <button class="view-nav-btn" data-view="electrophys" title="Press 4 for Spike Density Oscilloscope">
+          <span class="tab-num">4</span>
+          <span class="tab-icon">📊</span>
+          <div class="tab-text">
+            <span class="tab-main">ELECTROPHYSIOLOGY</span>
+            <span class="tab-sub">Oscilloscope & Firing Rates</span>
+          </div>
+        </button>
+        <button class="view-nav-btn" data-view="dual" title="Press 5 for Split Dual Cockpit">
+          <span class="tab-num">5</span>
+          <span class="tab-icon">🔲</span>
+          <div class="tab-text">
+            <span class="tab-main">SPLIT DUAL VIEW</span>
+            <span class="tab-sub">Flight + Telemetry Side-by-Side</span>
+          </div>
+        </button>
+      </div>
+      <div class="view-nav-hint">
+        <span class="kbd-badge">HOTKEYS 1 - 5</span>
+      </div>
+    </nav>
+
     <!-- Master Control Deck -->
     <div class="command-deck">
       <div class="deck-section">
@@ -211,158 +260,177 @@
       </div>
 
       <!-- Right: Biological Connectome & Electrophysiology -->
-      <div class="hud-panel connectome-viewport-container">
-        <!-- 3D Connectome Viewer -->
-        <div class="connectome-3d-box">
-          <div class="hud-panel-header transparent">
-            <div class="hud-title">
-              <span class="status-marker cyan"></span>
-              3D MaleCNS CONNECTOME
-            </div>
-            <div class="connectome-tools">
-              <div class="hud-tag" id="hud-neuron-tag">1,520 NEURONS // 25,480 SYNAPSES</div>
-              <button class="icon-tool-btn" id="btn-autorotate-brain" title="Toggle Auto-Rotation">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
-              </button>
-              <button class="icon-tool-btn" id="btn-reset-brain-cam" title="Reset Connectome Camera">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19 12a7 7 0 1 1-14 0 7 7 0 0 1 14 0z"></path></svg>
-              </button>
-            </div>
-          </div>
-
-          <!-- Neuropil Isolation Filter Bar -->
-          <div class="neuropil-filter-toolbar">
-            <span class="filter-label">ISOLATE:</span>
-            <div class="filter-chips">
-              <button class="np-chip active" data-neuropil="ALL">ALL</button>
-              <button class="np-chip optic" data-neuropil="OPTIC">OPTIC</button>
-              <button class="np-chip antennal" data-neuropil="ANTENNAL">ANTENNAL</button>
-              <button class="np-chip cx" data-neuropil="CENTRAL_COMPLEX">CX</button>
-              <button class="np-chip mb" data-neuropil="MUSHROOM_BODY">MB</button>
-              <button class="np-chip motor" data-neuropil="DESCENDING_MOTOR">MOTOR</button>
-            </div>
-          </div>
-
-          <div id="connectome-three-container"></div>
-          
-          <!-- 3D Viewer Legend / Guide -->
-          <div class="connectome-3d-legend">
-            <div class="legend-item"><span class="leg-color cyan"></span> Optic Lobes</div>
-            <div class="legend-item"><span class="leg-color green"></span> Antennal Lobes</div>
-            <div class="legend-item"><span class="leg-color yellow"></span> Central Complex</div>
-            <div class="legend-item"><span class="leg-color purple"></span> Mushroom Body</div>
-            <div class="legend-item"><span class="leg-color red"></span> Motor DNs</div>
-            <div class="legend-hint">Orbit: Drag | Zoom: Scroll | Dynamic Spiking: 4-14px</div>
-          </div>
+      <div class="hud-panel connectome-viewport-container" id="connectome-panel">
+        <!-- Panel Sub-Tabs for Dual Mode & Quick Switching -->
+        <div class="panel-sub-tabs" id="panel-sub-tabs">
+          <button class="panel-tab-btn active" data-panel="connectome">
+            <span class="p-tab-icon">🧠</span> MaleCNS 3D BRAIN
+          </button>
+          <button class="panel-tab-btn" data-panel="inside-fly">
+            <span class="p-tab-icon">🔬</span> INSIDE FLY 05
+          </button>
+          <button class="panel-tab-btn" data-panel="electrophys">
+            <span class="p-tab-icon">📊</span> SPIKE RASTER & RATES
+          </button>
         </div>
 
-        <!-- Inside Fly 05: Sensory & Bio-Telemetry Diagnostics -->
-        <div class="inside-fly-section">
-          <div class="inside-fly-header">
-            <div class="inside-fly-title">
-              <span class="status-marker emerald"></span>
-              INSIDE FLY 05 // SENSORY & TELEMETRY
-            </div>
-            <div class="fly-status-counters">
-              <span class="fly-counter-pill active"><strong id="fly-status-active">11</strong> active</span>
-              <span class="fly-counter-pill escaped"><strong id="fly-status-escaped">1</strong> escaped</span>
-              <span class="fly-counter-pill caught"><strong id="fly-status-caught">4</strong> caught</span>
-            </div>
-          </div>
-
-          <div class="inside-fly-body">
-            <!-- Left & Right Compound Eye Vision (What the fly sees) -->
-            <div class="retina-vision-block">
-              <div class="eye-viewport-box">
-                <div class="eye-title">LEFT EYE (8×8)</div>
-                <div class="eye-canvas-wrap">
-                  <canvas id="left-eye-canvas" width="64" height="64"></canvas>
-                </div>
+        <!-- Module 1: 3D Connectome Viewer -->
+        <div class="panel-module active" id="panel-mod-connectome">
+          <div class="connectome-3d-box">
+            <div class="hud-panel-header transparent">
+              <div class="hud-title">
+                <span class="status-marker cyan"></span>
+                3D MaleCNS CONNECTOME
               </div>
-              <div class="eye-viewport-box">
-                <div class="eye-title">RIGHT EYE (8×8)</div>
-                <div class="eye-canvas-wrap">
-                  <canvas id="right-eye-canvas" width="64" height="64"></canvas>
-                </div>
+              <div class="connectome-tools">
+                <div class="hud-tag" id="hud-neuron-tag">1,520 NEURONS // 25,480 SYNAPSES</div>
+                <button class="icon-tool-btn" id="btn-autorotate-brain" title="Toggle Auto-Rotation">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
+                </button>
+                <button class="icon-tool-btn" id="btn-reset-brain-cam" title="Reset Connectome Camera">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19 12a7 7 0 1 1-14 0 7 7 0 0 1 14 0z"></path></svg>
+                </button>
               </div>
             </div>
 
-            <!-- Smell Excitation & Electrical Telemetry -->
-            <div class="inside-telemetry-col">
-              <!-- Antennal Smell Excitation Bars -->
-              <div class="smell-meter-box">
-                <div class="smell-meter-row">
-                  <span class="smell-label">Smell excitation - left</span>
-                  <div class="meter-bar-track">
-                    <div id="smell-bar-left" class="meter-bar-fill emerald" style="width: 0%;"></div>
-                  </div>
-                  <span class="smell-num font-mono" id="smell-val-left">0.00</span>
-                </div>
-                <div class="smell-meter-row">
-                  <span class="smell-label">Smell excitation - right</span>
-                  <div class="meter-bar-track">
-                    <div id="smell-bar-right" class="meter-bar-fill emerald" style="width: 0%;"></div>
-                  </div>
-                  <span class="smell-num font-mono" id="smell-val-right">0.00</span>
-                </div>
+            <!-- Neuropil Isolation Filter Bar -->
+            <div class="neuropil-filter-toolbar">
+              <span class="filter-label">ISOLATE:</span>
+              <div class="filter-chips">
+                <button class="np-chip active" data-neuropil="ALL">ALL</button>
+                <button class="np-chip optic" data-neuropil="OPTIC">OPTIC</button>
+                <button class="np-chip antennal" data-neuropil="ANTENNAL">ANTENNAL</button>
+                <button class="np-chip cx" data-neuropil="CENTRAL_COMPLEX">CX</button>
+                <button class="np-chip mb" data-neuropil="MUSHROOM_BODY">MB</button>
+                <button class="np-chip motor" data-neuropil="DESCENDING_MOTOR">MOTOR</button>
               </div>
+            </div>
 
-              <!-- Electrical State & Fraction Firing Chips -->
-              <div class="bio-stat-row">
-                <div class="bio-card">
-                  <span class="bio-card-label">Average electrical state</span>
-                  <span class="bio-card-val font-mono" id="inside-avg-v">-65.0 <small>mV</small></span>
-                </div>
-                <div class="bio-card">
-                  <span class="bio-card-label">Fraction firing</span>
-                  <span class="bio-card-val font-mono highlight-cyan" id="inside-fraction-firing">0.0%</span>
-                </div>
-                <div class="bio-card">
-                  <span class="bio-card-label">Mean firing rate</span>
-                  <span class="bio-card-val font-mono" id="inside-mean-rate">0.0 <small>Hz</small></span>
-                </div>
-              </div>
-
-              <!-- Inside Fly 05: Real-time Sparkline Waveforms -->
-              <div class="inside-waveform-box">
-                <div class="waveform-header">
-                  <span class="waveform-title">SMELL EXCITATION & ACTIVITY WAVEFORMS</span>
-                  <div class="waveform-legend">
-                    <span class="spk-leg emerald">L-Smell</span>
-                    <span class="spk-leg mint">R-Smell</span>
-                    <span class="spk-leg cyan">Spikes %</span>
-                  </div>
-                </div>
-                <canvas id="inside-sparkline-canvas" width="250" height="34"></canvas>
-              </div>
+            <div id="connectome-three-container"></div>
+            
+            <!-- 3D Viewer Legend / Guide -->
+            <div class="connectome-3d-legend">
+              <div class="legend-item"><span class="leg-color cyan"></span> Optic Lobes</div>
+              <div class="legend-item"><span class="leg-color green"></span> Antennal Lobes</div>
+              <div class="legend-item"><span class="leg-color yellow"></span> Central Complex</div>
+              <div class="legend-item"><span class="leg-color purple"></span> Mushroom Body</div>
+              <div class="legend-item"><span class="leg-color red"></span> Motor DNs</div>
+              <div class="legend-hint">Orbit: Drag | Zoom: Scroll | Dynamic Spiking: 4-14px</div>
             </div>
           </div>
         </div>
 
-        <!-- Electrophysiology Dock: Spike Raster + Firing Rates -->
-        <div class="electrophys-dock">
-          <!-- Oscilloscope Spike Raster -->
-          <div class="scope-module">
-            <div class="scope-header">
-              <span class="scope-title">OSCILLOSCOPE // SPIKE RASTER DENSITY (100 ms)</span>
-              <div class="scope-stats">
-                <span class="scope-pill"><strong id="hud-active-spikes">0</strong> SPIKES/TICK</span>
-                <span class="scope-pill">SPARSITY: <strong id="hud-sparsity">98.5%</strong></span>
+        <!-- Module 2: Inside Fly 05: Sensory & Bio-Telemetry Diagnostics -->
+        <div class="panel-module" id="panel-mod-inside-fly">
+          <div class="inside-fly-section">
+            <div class="inside-fly-header">
+              <div class="inside-fly-title">
+                <span class="status-marker emerald"></span>
+                INSIDE FLY 05 // SENSORY & TELEMETRY
+              </div>
+              <div class="fly-status-counters">
+                <span class="fly-counter-pill active"><strong id="fly-status-active">11</strong> active</span>
+                <span class="fly-counter-pill escaped"><strong id="fly-status-escaped">1</strong> escaped</span>
+                <span class="fly-counter-pill caught"><strong id="fly-status-caught">4</strong> caught</span>
               </div>
             </div>
-            <div class="raster-frame">
-              <canvas id="raster-canvas"></canvas>
+
+            <div class="inside-fly-body">
+              <!-- Left & Right Compound Eye Vision (What the fly sees) -->
+              <div class="retina-vision-block">
+                <div class="eye-viewport-box">
+                  <div class="eye-title">LEFT COMPOUND EYE (8×8)</div>
+                  <div class="eye-canvas-wrap">
+                    <canvas id="left-eye-canvas" width="128" height="128"></canvas>
+                  </div>
+                </div>
+                <div class="eye-viewport-box">
+                  <div class="eye-title">RIGHT COMPOUND EYE (8×8)</div>
+                  <div class="eye-canvas-wrap">
+                    <canvas id="right-eye-canvas" width="128" height="128"></canvas>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Smell Excitation & Electrical Telemetry -->
+              <div class="inside-telemetry-col">
+                <!-- Antennal Smell Excitation Bars -->
+                <div class="smell-meter-box">
+                  <div class="smell-meter-row">
+                    <span class="smell-label">Smell excitation - left</span>
+                    <div class="meter-bar-track">
+                      <div id="smell-bar-left" class="meter-bar-fill emerald" style="width: 0%;"></div>
+                    </div>
+                    <span class="smell-num font-mono" id="smell-val-left">0.00</span>
+                  </div>
+                  <div class="smell-meter-row">
+                    <span class="smell-label">Smell excitation - right</span>
+                    <div class="meter-bar-track">
+                      <div id="smell-bar-right" class="meter-bar-fill emerald" style="width: 0%;"></div>
+                    </div>
+                    <span class="smell-num font-mono" id="smell-val-right">0.00</span>
+                  </div>
+                </div>
+
+                <!-- Electrical State & Fraction Firing Chips -->
+                <div class="bio-stat-row">
+                  <div class="bio-card">
+                    <span class="bio-card-label">Average electrical state</span>
+                    <span class="bio-card-val font-mono" id="inside-avg-v">-65.0 <small>mV</small></span>
+                  </div>
+                  <div class="bio-card">
+                    <span class="bio-card-label">Fraction firing</span>
+                    <span class="bio-card-val font-mono highlight-cyan" id="inside-fraction-firing">0.0%</span>
+                  </div>
+                  <div class="bio-card">
+                    <span class="bio-card-label">Mean firing rate</span>
+                    <span class="bio-card-val font-mono" id="inside-mean-rate">0.0 <small>Hz</small></span>
+                  </div>
+                </div>
+
+                <!-- Inside Fly 05: Real-time Sparkline Waveforms -->
+                <div class="inside-waveform-box">
+                  <div class="waveform-header">
+                    <span class="waveform-title">SMELL EXCITATION & ACTIVITY WAVEFORMS</span>
+                    <div class="waveform-legend">
+                      <span class="spk-leg emerald">L-Smell</span>
+                      <span class="spk-leg mint">R-Smell</span>
+                      <span class="spk-leg cyan">Spikes %</span>
+                    </div>
+                  </div>
+                  <canvas id="inside-sparkline-canvas" width="400" height="48"></canvas>
+                </div>
+              </div>
             </div>
           </div>
+        </div>
 
-          <!-- Neuropil Population Rate Meters -->
-          <div class="neuropil-module">
-            <div class="scope-header">
-              <span class="scope-title">NEUROPIL POPULATION FIRING RATES (Hz)</span>
-              <span class="scope-scale">CALIBRATED: 0 - 350 Hz</span>
+        <!-- Module 3: Electrophysiology Dock: Spike Raster + Firing Rates -->
+        <div class="panel-module" id="panel-mod-electrophys">
+          <div class="electrophys-dock">
+            <!-- Oscilloscope Spike Raster -->
+            <div class="scope-module">
+              <div class="scope-header">
+                <span class="scope-title">OSCILLOSCOPE // SPIKE RASTER DENSITY (100 ms)</span>
+                <div class="scope-stats">
+                  <span class="scope-pill"><strong id="hud-active-spikes">0</strong> SPIKES/TICK</span>
+                  <span class="scope-pill">SPARSITY: <strong id="hud-sparsity">98.5%</strong></span>
+                </div>
+              </div>
+              <div class="raster-frame">
+                <canvas id="raster-canvas"></canvas>
+              </div>
             </div>
-            <div class="neuropil-meters-grid" id="neuropil-meters-grid">
-              <!-- Dynamically populated with calibrated color bars -->
+
+            <!-- Neuropil Population Rate Meters -->
+            <div class="neuropil-module">
+              <div class="scope-header">
+                <span class="scope-title">NEUROPIL POPULATION FIRING RATES (Hz)</span>
+                <span class="scope-scale">CALIBRATED: 0 - 350 Hz</span>
+              </div>
+              <div class="neuropil-meters-grid" id="neuropil-meters-grid">
+                <!-- Dynamically populated with calibrated color bars -->
+              </div>
             </div>
           </div>
         </div>

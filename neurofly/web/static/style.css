@@ -343,15 +343,395 @@ body {
 }
 
 /* ==========================================================================
-   Main Dual Workspace Layout
+   Primary View Navigation Bar (แยกหน้าจอ 5 มุมมองหลัก)
+   ========================================================================== */
+.view-navigation-bar {
+  background: rgba(11, 15, 25, 0.95);
+  border-bottom: 1px solid var(--border-dim);
+  padding: 6px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-shrink: 0;
+  backdrop-filter: blur(8px);
+  z-index: 20;
+}
+
+.view-tabs-cluster {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow-x: auto;
+}
+
+.view-nav-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border-dim);
+  border-radius: 6px;
+  padding: 5px 12px;
+  cursor: pointer;
+  color: var(--text-main);
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  text-align: left;
+}
+
+.view-nav-btn:hover {
+  background: rgba(0, 240, 255, 0.06);
+  border-color: rgba(0, 240, 255, 0.4);
+  color: var(--text-pure);
+  transform: translateY(-1px);
+}
+
+.view-nav-btn.active {
+  background: linear-gradient(135deg, rgba(0, 240, 255, 0.16) 0%, rgba(16, 185, 129, 0.10) 100%);
+  border-color: var(--accent-cyan);
+  box-shadow: 0 0 14px rgba(0, 240, 255, 0.25), inset 0 0 10px rgba(0, 240, 255, 0.08);
+  color: var(--text-pure);
+}
+
+.tab-num {
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border-dim);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.view-nav-btn.active .tab-num {
+  background: var(--accent-cyan);
+  border-color: var(--accent-cyan);
+  color: #040810;
+  box-shadow: 0 0 8px var(--accent-cyan-glow);
+}
+
+.tab-icon {
+  font-size: 14px;
+}
+
+.tab-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.tab-main {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  color: var(--text-pure);
+}
+
+.view-nav-btn.active .tab-main {
+  color: var(--accent-cyan);
+}
+
+.tab-sub {
+  font-size: 9px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+
+.view-nav-hint {
+  display: flex;
+  align-items: center;
+}
+
+.kbd-badge {
+  font-size: 9px;
+  font-family: var(--font-mono);
+  font-weight: 600;
+  color: var(--accent-cyan);
+  background: rgba(0, 240, 255, 0.08);
+  border: 1px solid rgba(0, 240, 255, 0.25);
+  padding: 3px 8px;
+  border-radius: 4px;
+  letter-spacing: 0.5px;
+}
+
+/* ==========================================================================
+   Panel Sub-Tabs (ในโหมด Split Dual View)
+   ========================================================================== */
+.panel-sub-tabs {
+  display: flex;
+  align-items: center;
+  background: #090d16;
+  border-bottom: 1px solid var(--border-dim);
+  height: 38px;
+  flex-shrink: 0;
+  padding: 0 6px;
+  gap: 4px;
+}
+
+.panel-tab-btn {
+  flex: 1;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  color: var(--text-muted);
+  font-size: 10.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.panel-tab-btn:hover {
+  color: var(--text-pure);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.panel-tab-btn.active {
+  color: var(--accent-cyan);
+  background: rgba(0, 240, 255, 0.10);
+  border-color: rgba(0, 240, 255, 0.35);
+  box-shadow: 0 0 10px rgba(0, 240, 255, 0.15);
+}
+
+.p-tab-icon {
+  font-size: 13px;
+}
+
+.panel-module {
+  display: none;
+  flex: 1;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+}
+
+.panel-module.active {
+  display: flex;
+}
+
+/* ==========================================================================
+   Main Dual Workspace Layout & View Modes
    ========================================================================== */
 .main-workspace {
   flex: 1;
   display: grid;
-  grid-template-columns: 1fr 520px;
+  grid-template-columns: 1fr;
   gap: 12px;
   padding: 12px;
   overflow: hidden;
+}
+
+/* Layout Modes via data-active-view */
+.main-workspace[data-active-view="flight"] {
+  grid-template-columns: 1fr;
+}
+.main-workspace[data-active-view="flight"] .hero-viewport {
+  display: flex;
+}
+.main-workspace[data-active-view="flight"] #connectome-panel {
+  display: none !important;
+}
+
+.main-workspace[data-active-view="connectome"] {
+  grid-template-columns: 1fr;
+}
+.main-workspace[data-active-view="connectome"] .hero-viewport {
+  display: none !important;
+}
+.main-workspace[data-active-view="connectome"] #connectome-panel {
+  display: flex !important;
+  width: 100%;
+}
+.main-workspace[data-active-view="connectome"] #panel-sub-tabs {
+  display: none !important;
+}
+.main-workspace[data-active-view="connectome"] #panel-mod-connectome {
+  display: flex !important;
+  flex: 1;
+}
+.main-workspace[data-active-view="connectome"] #panel-mod-inside-fly,
+.main-workspace[data-active-view="connectome"] #panel-mod-electrophys {
+  display: none !important;
+}
+.main-workspace[data-active-view="connectome"] .connectome-3d-box {
+  height: 100% !important;
+  flex: 1;
+}
+
+.main-workspace[data-active-view="inside-fly"] {
+  grid-template-columns: 1fr;
+}
+.main-workspace[data-active-view="inside-fly"] .hero-viewport {
+  display: none !important;
+}
+.main-workspace[data-active-view="inside-fly"] #connectome-panel {
+  display: flex !important;
+  width: 100%;
+  overflow-y: auto;
+}
+.main-workspace[data-active-view="inside-fly"] #panel-sub-tabs {
+  display: none !important;
+}
+.main-workspace[data-active-view="inside-fly"] #panel-mod-inside-fly {
+  display: flex !important;
+  flex: 1;
+  padding: 24px;
+}
+.main-workspace[data-active-view="inside-fly"] #panel-mod-connectome,
+.main-workspace[data-active-view="inside-fly"] #panel-mod-electrophys {
+  display: none !important;
+}
+.main-workspace[data-active-view="inside-fly"] .inside-fly-section {
+  border: none;
+  background: transparent;
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+.main-workspace[data-active-view="inside-fly"] .inside-fly-body {
+  display: grid;
+  grid-template-columns: 360px 1fr;
+  gap: 32px;
+  align-items: start;
+}
+.main-workspace[data-active-view="inside-fly"] .retina-vision-block {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+}
+.main-workspace[data-active-view="inside-fly"] .eye-canvas-wrap {
+  width: 156px;
+  height: 156px;
+}
+.main-workspace[data-active-view="inside-fly"] #left-eye-canvas,
+.main-workspace[data-active-view="inside-fly"] #right-eye-canvas {
+  width: 148px;
+  height: 148px;
+}
+.main-workspace[data-active-view="inside-fly"] .eye-title {
+  font-size: 11px;
+}
+.main-workspace[data-active-view="inside-fly"] .smell-meter-box {
+  padding: 16px 20px;
+  background: rgba(14, 18, 28, 0.7);
+  border: 1px solid var(--border-dim);
+  border-radius: 6px;
+  gap: 12px;
+}
+.main-workspace[data-active-view="inside-fly"] .smell-label {
+  font-size: 12px;
+  width: 180px;
+}
+.main-workspace[data-active-view="inside-fly"] .meter-bar-track {
+  height: 12px;
+}
+.main-workspace[data-active-view="inside-fly"] .smell-num {
+  font-size: 13px;
+  width: 45px;
+}
+.main-workspace[data-active-view="inside-fly"] .bio-card {
+  padding: 10px 16px;
+}
+.main-workspace[data-active-view="inside-fly"] .bio-card-label {
+  font-size: 9.5px;
+}
+.main-workspace[data-active-view="inside-fly"] .bio-card-val {
+  font-size: 16px;
+}
+.main-workspace[data-active-view="inside-fly"] .inside-waveform-box {
+  padding: 12px 18px;
+}
+.main-workspace[data-active-view="inside-fly"] #inside-sparkline-canvas {
+  height: 64px;
+}
+
+.main-workspace[data-active-view="electrophys"] {
+  grid-template-columns: 1fr;
+}
+.main-workspace[data-active-view="electrophys"] .hero-viewport {
+  display: none !important;
+}
+.main-workspace[data-active-view="electrophys"] #connectome-panel {
+  display: flex !important;
+  width: 100%;
+}
+.main-workspace[data-active-view="electrophys"] #panel-sub-tabs {
+  display: none !important;
+}
+.main-workspace[data-active-view="electrophys"] #panel-mod-electrophys {
+  display: flex !important;
+  flex: 1;
+}
+.main-workspace[data-active-view="electrophys"] #panel-mod-connectome,
+.main-workspace[data-active-view="electrophys"] #panel-mod-inside-fly {
+  display: none !important;
+}
+.main-workspace[data-active-view="electrophys"] .electrophys-dock {
+  height: 100%;
+  padding: 20px;
+  gap: 20px;
+}
+.main-workspace[data-active-view="electrophys"] .scope-module {
+  flex: 1;
+  min-height: 300px;
+}
+.main-workspace[data-active-view="electrophys"] .neuropil-meters-grid {
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 30px;
+}
+
+.main-workspace[data-active-view="dual"] {
+  grid-template-columns: 1fr 520px;
+}
+.main-workspace[data-active-view="dual"] .hero-viewport {
+  display: flex;
+}
+.main-workspace[data-active-view="dual"] #connectome-panel {
+  display: flex;
+}
+.main-workspace[data-active-view="dual"] #panel-sub-tabs {
+  display: flex;
+}
+.main-workspace[data-active-view="dual"] .connectome-3d-box {
+  height: 100%;
+  flex: 1;
+}
+.main-workspace[data-active-view="dual"] .inside-fly-section {
+  height: 100%;
+  flex: 1;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-around;
+}
+.main-workspace[data-active-view="dual"] .inside-fly-body {
+  flex-direction: column;
+  gap: 16px;
+}
+.main-workspace[data-active-view="dual"] .retina-vision-block {
+  justify-content: center;
+}
+.main-workspace[data-active-view="dual"] .eye-canvas-wrap {
+  width: 90px;
+  height: 90px;
+}
+.main-workspace[data-active-view="dual"] #left-eye-canvas,
+.main-workspace[data-active-view="dual"] #right-eye-canvas {
+  width: 82px;
+  height: 82px;
+}
+.main-workspace[data-active-view="dual"] .electrophys-dock {
+  height: 100%;
+  flex: 1;
+  padding: 12px;
 }
 
 .hero-viewport {

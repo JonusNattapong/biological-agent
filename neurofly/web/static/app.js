@@ -2167,6 +2167,73 @@ if (btnFullscreenRoom) {
   });
 }
 
+// ==========================================================================
+// Primary View Navigation & Multi-Page View Switcher (แยกหน้าจอ 5 มุมมอง)
+// ==========================================================================
+const mainWorkspace = document.querySelector(".main-workspace");
+let activeView = "flight"; // "flight", "connectome", "inside-fly", "electrophys", "dual"
+let activePanelTab = "connectome"; // "connectome", "inside-fly", "electrophys"
+
+function switchView(viewKey) {
+  if (!mainWorkspace) return;
+  activeView = viewKey;
+  mainWorkspace.setAttribute("data-active-view", viewKey);
+
+  document.querySelectorAll(".view-nav-btn").forEach((btn) => {
+    btn.classList.toggle("active", btn.getAttribute("data-view") === viewKey);
+  });
+
+  // Re-adjust Three.js viewports smoothly
+  setTimeout(() => {
+    onRoomWindowResize();
+    onConnectomeResize();
+  }, 40);
+  setTimeout(() => {
+    onRoomWindowResize();
+    onConnectomeResize();
+  }, 160);
+}
+
+function switchPanelTab(panelKey) {
+  activePanelTab = panelKey;
+  document.querySelectorAll(".panel-tab-btn").forEach((btn) => {
+    btn.classList.toggle("active", btn.getAttribute("data-panel") === panelKey);
+  });
+  document.querySelectorAll(".panel-module").forEach((mod) => {
+    mod.classList.toggle("active", mod.id === `panel-mod-${panelKey}`);
+  });
+
+  if (panelKey === "connectome") {
+    setTimeout(onConnectomeResize, 40);
+  }
+}
+
+// Bind primary view nav buttons
+document.querySelectorAll(".view-nav-btn").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    const view = btn.getAttribute("data-view");
+    if (view) switchView(view);
+  });
+});
+
+// Bind panel sub-tab buttons
+document.querySelectorAll(".panel-tab-btn").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    const panel = btn.getAttribute("data-panel");
+    if (panel) switchPanelTab(panel);
+  });
+});
+
+// Keyboard shortcuts 1-5
+window.addEventListener("keydown", (e) => {
+  if (e.target.tagName === "INPUT" || e.target.tagName === "SELECT") return;
+  if (e.key === "1") switchView("flight");
+  else if (e.key === "2") switchView("connectome");
+  else if (e.key === "3") switchView("inside-fly");
+  else if (e.key === "4") switchView("electrophys");
+  else if (e.key === "5") switchView("dual");
+});
+
 // Bootstrap Both 3D Canvas
 window.addEventListener("DOMContentLoaded", () => {
   initRoom3D();
@@ -2176,6 +2243,7 @@ window.addEventListener("DOMContentLoaded", () => {
   animateConnectomeLoop();
 
   connectWebSocket();
+  switchView("flight");
 });
 
 function hexToRgb(hex) {
